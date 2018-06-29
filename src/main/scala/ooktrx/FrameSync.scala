@@ -28,7 +28,6 @@ class FrameSync (val frameBitsWidth: Int) extends Module {
   val fifoReg = RegInit(0.U(frameBitsWidth.W))
 
   fifoReg := (fifoReg << 1) | io.in
-  io.syncOk := false.B
 
   when (fifoReg === io.frameBits){
     io.syncOk := true.B
