@@ -17,7 +17,7 @@ case class FrameSyncParams (
 
 class FrameSync (val frameBitsWidth: Int) extends Module {
 
-  require(frameBitsWidth > 0, s"Frame Bits Width must be > 2, got $frameBitsWidth")
+  require(frameBitsWidth > 2, s"Frame Bits Width must be > 2, got $frameBitsWidth")
 
   val io = IO(new Bundle{
     val in = Input(Bool())
@@ -31,6 +31,7 @@ class FrameSync (val frameBitsWidth: Int) extends Module {
 
   when (fifoReg === io.frameBits){
     io.syncOk := true.B
+    fifoReg := 0.U
   }.otherwise {
     io.syncOk := false.B
   }

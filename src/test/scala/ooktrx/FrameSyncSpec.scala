@@ -21,7 +21,7 @@ class FrameSyncTester(val c: FrameSync) extends DspTester(c) {
     randomFrameBits = Random.nextInt(2)
     poke(c.io.in, randomFrameBits != 0)
     step(1)
-    when(c.io.syncOk){
+    if(c.io.syncOk == 1){
       frameValidCounter += 1
     }
     numberOfSteps += 1
