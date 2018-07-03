@@ -10,20 +10,22 @@ import scala.util.Random
 
 class FrameSyncTester(val c: FrameSync) extends DspTester(c) {
 
-  val frameBits = "b0101".asUInt(c.frameBitsWidth.W)
+  val frameBits = "b1111".asUInt(c.frameBitsWidth.W)
   var numberOfSteps = 0
-  var frameValidCounter = 0
   var randomFrameBits = Random.nextInt(2)
 
   poke(c.io.frameBits, frameBits)
+  poke(c.io.frameIndex, "b0011".asUInt(4.W))
 
-  while(frameValidCounter < 3 && numberOfSteps < 1000){
+  while(numberOfSteps < 1000){
     randomFrameBits = Random.nextInt(2)
     poke(c.io.in, randomFrameBits != 0)
-    step(1)
-    if(c.io.syncOk == 1){
-      frameValidCounter += 1
+    if(numberOfSteps % 100 < 100){
+      poke(c.io.requestFrame, true.B)
+    }else{
+      poke(c.io.requestFrame, false.B)
     }
+    step(1)
     numberOfSteps += 1
   }
 }
@@ -31,7 +33,9 @@ class FrameSyncTester(val c: FrameSync) extends DspTester(c) {
 class FrameSyncSpec extends FreeSpec with Matchers {
   "First test: with 4-bit frame bits" in{
     val frameBitsWidthNb = 4
-    val gen = () => new FrameSync(frameBitsWidthNb)
+    val frameWidthNb = 20 
+    val frameIndexWidthNb = 4
+    val gen = () => new FrameSync(frameBitsWidthNb, frameWidthNb, frameIndexWidthNb)
     dsptools.Driver.execute(
       gen, Array(
         "--backend-name", "verilator",
