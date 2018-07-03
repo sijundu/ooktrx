@@ -57,8 +57,14 @@ class CRCEncode (val dataWidth: Int,
     }.otherwise{
       counter := counter + 1.U
       validOut := false.B
-      when(dataExtended(dataWidth-1-counter) === 1.U){
-        dataExtended(dataWidth-1-counter, dataWidth-counter-divisorWidth) ^= io.divisor
+      when(dataExtended(dataWidth.asUInt-1.U-counter) === 1.U){
+        val interData = Wire(UInt(dataWidth.W))
+        when(counter === 0.U){
+          interData := Cat(dataExtended(dataWidth.asUInt-1.U, dataWidth.asUInt-divisorWidth.asUInt) ^ io.divisor, dataExtended(dataWidth.asUInt-divisorWidth.asUInt-1.U, 0.U))
+        }.otherwise{
+          interData := Cat(dataExtended(dataWidth.asUInt-1.U, dataWidth.asUInt-counter), Cat(dataExtended(dataWidth.asUInt-1.U-counter, dataWidth.asUInt-counter-divisorWidth.asUInt) ^ io.divisor, dataExtended(dataWidth.asUInt-counter-divisorWidth.asUInt-1.U, 0.U)))
+        }
+        dataExtended := interData
       }.otherwise{
         dataExtended := dataExtended >> 1
       }
