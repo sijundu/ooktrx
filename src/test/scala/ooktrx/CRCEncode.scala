@@ -11,16 +11,18 @@ class CRCEncodeTester(val c: CRCEncode) extends DspTester(c) {
   
   val divisor = "b1101".asUInt(c.divisorWidth.W)
   var numberOfSteps = 0
+  var validIn = false.B
 
   poke(c.io.divisor, divisor)
 
   while(numberOfSteps < 2000) {
-    poke(c.io.dataIn, Random.nextInt(math.pow(2, c.dataWidth - c.divisorWidth + 1).toInt).asUInt)
     if(numberOfSteps%20 == 0){
-      poke(c.io.validIn, true.B)
+      poke(c.io.dataIn, Random.nextInt(math.pow(2, c.dataWidth - c.divisorWidth + 1).toInt).asUInt)
+      validIn = true.B
     } else{
-      poke(c.io.validIn, false.B)
+      validIn = false.B
     }
+    poke(c.io.validIn, validIn)
     step(1)
     numberOfSteps += 1
   }

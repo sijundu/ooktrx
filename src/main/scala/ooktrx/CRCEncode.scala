@@ -19,9 +19,10 @@ class CRCEncode (val dataWidth: Int,
     val dataOut = Output(UInt(dataWidth.W))
     val validOut = Output(Bool())
     val requestData = Output(Bool())
+    //val debugXor = Output(UInt(divisorWidth.W))
   })
 
-  //require(io.divisor(divisorWidth-1)===true.B, "The MSB of divisor must be 1")
+  //require(io.divisor(divisorWidth-1) === true.B, "The MSB of divisor must be 1")
 
   val counter = RegInit(0.U((log2Ceil(dataWidth).toInt).W))
 
@@ -33,6 +34,19 @@ class CRCEncode (val dataWidth: Int,
   val validOut = RegInit(Bool(), false.B)
   io.validOut := validOut
 
+  val dataOut = RegInit(0.U(dataWidth.W))
+  io.dataOut := dataOut
+
+  /*
+  val debugXor = RegInit(0.U(divisorWidth.W))
+  io.debugXor := debugXor
+  val debugDataExtended = RegInit(0.U(dataWidth.W))
+  io.debugDataExtended := debugDataExtended 
+  val debugDataXor = RegInit(0.U(dataWidth.W))
+  debugDataXor := Cat(debugXor, Fill(dataWidth-divisorWidth-2, 0.U))
+  io.debugDataXor := debugDataXor 
+  */
+  
   /*
   when(io.validIn){
     dataExtended := io.dataIn << (divisorWidth-1)
@@ -44,43 +58,35 @@ class CRCEncode (val dataWidth: Int,
     dataExtended := io.dataIn << (divisorWidth - 1)
     requestData := false.B
     counter := 0.U
-  }.elsewhen(!validOut){
-    when(dataExtended < io.divisor){
-      io.dataOut(dataWidth-1, divisorWidth-1) := io.dataIn
-      io.dataOut(divisorWidth-2, 0) := dataExtended(divisorWidth-2, 0)
+  }.elsewhen(!validOut && !requestData){
+    when(dataExtended < (1.U << (divisorWidth-1))){
+      dataOut := Cat(io.dataIn, dataExtended(divisorWidth-2, 0))
       validOut := true.B
       requestData := true.B
     }.elsewhen(dataExtended === io.divisor){
-      io.dataOut := io.dataIn << (divisorWidth-1)
+      dataOut := io.dataIn << (divisorWidth-1)
       validOut := true.B
       requestData := true.B
     }.otherwise{
       counter := counter + 1.U
       validOut := false.B
       when(dataExtended(dataWidth.asUInt-1.U-counter) === 1.U){
-        val interData = Wire(UInt(dataWidth.W))
         when(counter === 0.U){
-          interData := Cat(dataExtended(dataWidth.asUInt-1.U, dataWidth.asUInt-divisorWidth.asUInt) ^ io.divisor, dataExtended(dataWidth.asUInt-divisorWidth.asUInt-1.U, 0.U))
+          //debugXor := (dataExtended(dataWidth-1, dataWidth-divisorWidth)) ^ io.divisor
+          dataExtended := Cat((dataExtended(dataWidth-1, dataWidth-divisorWidth)) ^ io.divisor, dataExtended(dataWidth-divisorWidth-1, 0))
         }.otherwise{
-          interData := Cat(dataExtended(dataWidth.asUInt-1.U, dataWidth.asUInt-counter), Cat(dataExtended(dataWidth.asUInt-1.U-counter, dataWidth.asUInt-counter-divisorWidth.asUInt) ^ io.divisor, dataExtended(dataWidth.asUInt-counter-divisorWidth.asUInt-1.U, 0.U)))
+          val headData = "b0".asUInt(1.W) << (counter-1.U)
+          val xored = ((dataExtended<<counter)(dataWidth-1,0)>>(dataWidth-divisorWidth)) ^ io.divisor
+          val tailData = ((dataExtended << (divisorWidth.U+counter))(dataWidth-1, 0))>>(divisorWidth.U+counter)
+          dataExtended := Cat(headData, xored)<<(dataWidth.asUInt-divisorWidth.asUInt-counter) | tailData
+          //debugXor := xored
         }
-        dataExtended := interData
-      }.otherwise{
-        dataExtended := dataExtended >> 1
+      //}.otherwise{
+      //  dataExtended := dataExtended >> 1
       }
     }
   }.otherwise{
     validOut := false.B
   }
-
-  /*
-  (0 until dataWidth-divisorWidth+1){ index =>
-    interData(index) := dataExtended >> index
-    when(interData())
-  }
-  */
-
-  
-  //io.dataOut := dataExtended | (dataExtended % io.divisor)
 
 }
