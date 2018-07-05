@@ -1,8 +1,20 @@
+// See README.md for licence details.
 
 package ooktrx
 
 import chisel3._
 import chisel3.util._
+
+// Frame example 32-bit in total
+//   0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+//  |       A        |    B   |                  C                 |    D  |
+//
+//  A+B+C+D @frameWidth = 32
+//  A       @frameBitsWidth = 8
+//  B       @frameIndexWidth = 4
+//  C       @dataWidth = 16
+//  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
+//  Note:   Width of specific sections may vary
 
 class CRCEncode (val dataWidth: Int,
                  val divisorWidth: Int
@@ -10,13 +22,12 @@ class CRCEncode (val dataWidth: Int,
 
   require(divisorWidth >= 2, s"Divider bit width must be >= 2, got $divisorWidth")
   require(dataWidth >= 8, s"Data bit width must be >= 8, got $dataWidth")
-  require(dataWidth > divisorWidth, "Data bitwidth must be greater than divisor bitwidth")
 
   val io = IO(new Bundle{
     val divisor = Input(UInt(divisorWidth.W))
-    val dataIn = Input(UInt((dataWidth - divisorWidth + 1).W))
+    val dataIn = Input(UInt(dataWidth.W))
     val validIn = Input(Bool())
-    val dataOut = Output(UInt(dataWidth.W))
+    val dataOut = Output(UInt((dataWidth+divisorWidth-1).W))
     val validOut = Output(Bool())
     val requestData = Output(Bool())
     //val debugXor = Output(UInt(divisorWidth.W))
@@ -24,9 +35,9 @@ class CRCEncode (val dataWidth: Int,
 
   //require(io.divisor(divisorWidth-1) === true.B, "The MSB of divisor must be 1")
 
-  val counter = RegInit(0.U((log2Ceil(dataWidth).toInt).W))
+  val counter = RegInit(0.U((log2Ceil(dataWidth+divisorWidth-1).toInt).W))
 
-  val dataExtended = RegInit(0.U(dataWidth.W))
+  val dataExtended = RegInit(0.U((dataWidth+divisorWidth-1).W))
 
   val requestData = RegInit(Bool(), true.B)
   io.requestData := requestData
@@ -34,16 +45,16 @@ class CRCEncode (val dataWidth: Int,
   val validOut = RegInit(Bool(), false.B)
   io.validOut := validOut
 
-  val dataOut = RegInit(0.U(dataWidth.W))
+  val dataOut = RegInit(0.U((dataWidth+divisorWidth-1).W))
   io.dataOut := dataOut
 
   /*
   val debugXor = RegInit(0.U(divisorWidth.W))
   io.debugXor := debugXor
-  val debugDataExtended = RegInit(0.U(dataWidth.W))
+  val debugDataExtended = RegInit(0.U((dataWidth+divisorWidth-1).W))
   io.debugDataExtended := debugDataExtended 
-  val debugDataXor = RegInit(0.U(dataWidth.W))
-  debugDataXor := Cat(debugXor, Fill(dataWidth-divisorWidth-2, 0.U))
+  val debugDataXor = RegInit(0.U((dataWidth+divisorWidth-1).W))
+  debugDataXor := Cat(debugXor, Fill(dataWidth-3, 0.U))
   io.debugDataXor := debugDataXor 
   */
   
@@ -70,15 +81,15 @@ class CRCEncode (val dataWidth: Int,
     }.otherwise{
       counter := counter + 1.U
       validOut := false.B
-      when(dataExtended(dataWidth.asUInt-1.U-counter) === 1.U){
+      when(dataExtended((dataWidth+divisorWidth-1).asUInt-1.U-counter) === 1.U){
         when(counter === 0.U){
-          //debugXor := (dataExtended(dataWidth-1, dataWidth-divisorWidth)) ^ io.divisor
-          dataExtended := Cat((dataExtended(dataWidth-1, dataWidth-divisorWidth)) ^ io.divisor, dataExtended(dataWidth-divisorWidth-1, 0))
+          //debugXor := (dataExtended(dataWidth+divisorWidth-2, dataWidth-1)) ^ io.divisor
+          dataExtended := Cat((dataExtended(dataWidth+divisorWidth-2, dataWidth-1)) ^ io.divisor, dataExtended(dataWidth-2, 0))
         }.otherwise{
           val headData = "b0".asUInt(1.W) << (counter-1.U)
-          val xored = ((dataExtended<<counter)(dataWidth-1,0)>>(dataWidth-divisorWidth)) ^ io.divisor
-          val tailData = ((dataExtended << (divisorWidth.U+counter))(dataWidth-1, 0))>>(divisorWidth.U+counter)
-          dataExtended := Cat(headData, xored)<<(dataWidth.asUInt-divisorWidth.asUInt-counter) | tailData
+          val xored = ((dataExtended<<counter)(dataWidth+divisorWidth-2,0)>>(dataWidth-1)) ^ io.divisor
+          val tailData = ((dataExtended << (divisorWidth.U+counter))(dataWidth+divisorWidth-2, 0))>>(divisorWidth.U+counter)
+          dataExtended := Cat(headData, xored)<<((dataWidth+divisorWidth-1).asUInt-divisorWidth.asUInt-counter) | tailData
           //debugXor := xored
         }
       //}.otherwise{

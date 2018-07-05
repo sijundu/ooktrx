@@ -5,9 +5,21 @@ package ooktrx
 import chisel3._
 import chisel3.util._
 
+// Frame example 32-bit in total
+//   0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+//  |       A        |    B   |                  C                 |    D  |
+//
+//  A+B+C+D @frameWidth = 32
+//  A       @frameBitsWidth = 8
+//  B       @frameIndexWidth = 4
+//  C       @dataWidth = 16
+//  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
+//  Note:   Width of specific sections may vary
+
+
 class FrameSync (val frameBitsWidth: Int,
-                 val frameWidth: Int,
-                 val frameIndexWidth: Int
+                 val frameWidth: Int
+                 //val frameIndexWidth: Int
                 ) extends Module {
 
   require(frameBitsWidth > 2, s"Frame Bits Width must be > 2, got $frameBitsWidth")
@@ -17,7 +29,7 @@ class FrameSync (val frameBitsWidth: Int,
     val in = Input(Bool())
     val requestFrame = Input(Bool())
     val frameBits = Input(UInt(frameBitsWidth.W))
-    val frameIndex = Input(UInt(frameIndexWidth.W))
+    //val frameIndex = Input(UInt(frameIndexWidth.W))
     //val syncOk = Output(Bool())
     val frameReady = Output(Bool())
     val frameOut = Output(UInt(frameWidth.W))
@@ -42,12 +54,16 @@ class FrameSync (val frameBitsWidth: Int,
       bitCounter := 0.U
     }.elsewhen(bitCounter === 0.U){
       bitCounter := bitCounter + 1.U
-      frameOut := (Cat(io.frameBits, io.frameIndex) << 1) | io.in
-    }.elsewhen(bitCounter < (frameWidth-frameBitsWidth-frameIndexWidth).asUInt){
+      //frameOut := (Cat(io.frameBits, io.frameIndex) << 1) | io.in
+      frameOut := (io.frameBits << 1) | io.in
+    //}.elsewhen(bitCounter < (frameWidth-frameBitsWidth-frameIndexWidth).asUInt){
+    }.elsewhen(bitCounter < (frameWidth-frameBitsWidth).asUInt){
       bitCounter := bitCounter + 1.U
       frameOut := (frameOut << 1) | io.in
-      when(bitCounter === (frameWidth-frameBitsWidth-frameIndexWidth-1).asUInt){
+      //when(bitCounter === (frameWidth-frameBitsWidth-frameIndexWidth-1).asUInt){
+      when(bitCounter === (frameWidth-frameBitsWidth-1).asUInt){
         frameReady := true.B
+        frameBitsReg := 0.U
       }
     }
   }.otherwise{
@@ -58,9 +74,7 @@ class FrameSync (val frameBitsWidth: Int,
 
   when(frameReady && io.requestFrame){
     bitCounter := 0.U
-    frameBitsReg := 0.U
     frameOut := 0.U
-    syncOk := false.B
     frameReady := false.B
   }
     

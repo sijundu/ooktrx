@@ -33,7 +33,7 @@ class CRCCheckSpec extends FreeSpec with Matchers {
   "CRC Checking first test" in {
     val frameWidthNb = 20
     val frameIndexWidthNb = 4
-    val dataWidthNb = 12
+    val dataWidthNb = 9  
     val divisorWidthNb = 4
     val gen = () => new CRCCheck(frameWidthNb, frameIndexWidthNb, dataWidthNb, divisorWidthNb)
     dsptools.Driver.execute(

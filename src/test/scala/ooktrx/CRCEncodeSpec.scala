@@ -30,7 +30,7 @@ class CRCEncodeTester(val c: CRCEncode) extends DspTester(c) {
 
 class CRCEncodeSpec extends FreeSpec with Matchers {
   "CRC Encoding first test" in {
-    val dataWidthNb = 12
+    val dataWidthNb = 9
     val divisorWidthNb = 4
     val gen = () => new CRCEncode(dataWidthNb, divisorWidthNb)
     dsptools.Driver.execute(

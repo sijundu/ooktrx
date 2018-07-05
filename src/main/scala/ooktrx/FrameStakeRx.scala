@@ -6,6 +6,18 @@ import chisel3._
 import chisel3.util._
 import chisel3.core.requireIsChiselType
 
+// Frame example 32-bit in total
+//   0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
+//  |       A        |    B   |                  C                 |    D  |
+//
+//  A+B+C+D @frameWidth = 32
+//  A       @frameBitsWidth = 8
+//  B       @frameIndexWidth = 4
+//  C       @dataWidth = 16
+//  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
+//  Note:   Width of specific sections may vary
+
+
 class FrameStackRx//[T <: Data]
                    (//val gen: T,
                     val frameWidth: Int,
