@@ -5,6 +5,8 @@ import org.scalatest.{FreeSpec, Matchers}
 import chisel3._
 import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 import scala.util.Random
+import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 class CRCCheckTester(val c: CRCCheck) extends DspTester(c) {
   
