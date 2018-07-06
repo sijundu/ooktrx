@@ -17,7 +17,8 @@ import chisel3.util._
 //  Note:   Width of specific sections may vary
 
 
-class Control (val frameWidth: Int,
+class StateMachine (
+               val frameWidth: Int,
                val frameBitsWidth: Int,
                val frameIndexWidth: Int,
                val dataWidth: Int,
@@ -53,7 +54,7 @@ class Control (val frameWidth: Int,
     val sendEn = Output(Bool())
   })
 
-  /////////  Output initilization  /////////////
+  ////////////  Output initilization  /////////////
   val frameBits = RegInit(0.U(frameBitsWidth.W))
   io.frameBits := frameBits
 
@@ -76,17 +77,15 @@ class Control (val frameWidth: Int,
   io.sendEn := sendEn
   ////////////////////////////////////////////////
 
-  val rxDataAddr = RegInit(0.U(log2Ceil(dataRamSize).toInt.W))
-  val txDataAddr = RegInit((log2Ceil(dataRamSize).toInt.W))
-
-  
   // definition of specific instructions
-  val startSendCode = Fill(dataWidth, 1.U) 
-  val requestResendCode = 0.U(dataWidth.W)
+  val startSendCode = Fill(dataWidth, 1.U) // "b11...111"
+  val requestResendCode = 0.U(dataWidth.W) // "b00...000"
 
 
   // Data RAM initilization
   val dataRam = Mem(dataRamSize, UInt(dataWidth.W))
+  val rxDataAddr = RegInit(0.U(log2Ceil(dataRamSize).toInt.W))
+  val txDataAddr = RegInit((log2Ceil(dataRamSize).toInt.W))
 
   // System RAM initilization
   val sysRam = Mem(sysRamSize, sysRamWidth.W)
@@ -96,20 +95,24 @@ class Control (val frameWidth: Int,
   val rxDataStartAddr = 3.U(log2Ceil(sysRamSize).toInt.W)
   val txDataStartAddr = 4.U(log2Ceil(sysRamSize).toInt.W)
 
+
   // RequestResend registers
   val dataToBeResend = RegInit(0.U(dataWidth.W))
   val indexToBeResend = RegInit(0.U(frameIndexWidth.W))
 
   // State Machine deifinition
-  val sIdle :: sInit :: sReceive :: sRequestResend :: sSend :: Nil = Enum(5)
+  val sIdle :: sInit :: sReceive :: sRequestResend :: sResend :: sSend :: Nil = Enum(6)
   val state = Reg(init = sIdle)
 
+  //////////////////// State machine implementation //////////////////
   switch(state) {
+    // Idea state when powerOn is deasserted. 
     is(sIdle){
       sendEn := false.B
       when(io.powerOn){
         state := sInit
       }
+    // Init the system with some global definitions
     } is(sInit) {
       sendEn := false.B
       when(!io.powerOn){
@@ -122,6 +125,7 @@ class Control (val frameWidth: Int,
         rxDataAddr := sysRam.read(rxDataStartAddr)
         txDataAddr := sysRam.read(txDataStartAddr)
       }
+    // Receiving data
     } is(sReceive){
       when(!io.powerOn){
         state := sIdle
@@ -131,6 +135,9 @@ class Control (val frameWidth: Int,
           when(io.dataIn === startSendCode){
             state := sSend
             sendEn := true.B
+          //}.elsewhen(io.dataIn === requestResendCode){
+          //  state : sResend
+          //  sendEn := true.B
           }.elsewhen(rxDataAddr < txDataStartAddr){
             dataram.write(rxDataAddr, io.dataIn)
             rxDataAddr := rxDataAddr + 1.U
@@ -141,6 +148,7 @@ class Control (val frameWidth: Int,
           sendEn := true.B
         }
       }
+    // Transmit one single frame to request a data which didn't pass CRC
     } is(sRequestResend){
       when(!io.powerOn){
         state := sIdle
@@ -153,6 +161,15 @@ class Control (val frameWidth: Int,
           sendEn := false.B
         }
       }
+    /*
+    } is(sResend){
+      when(!io.powerOn){
+        state := sIdle
+        sendEn := false.B
+      }.otherwise{
+        dataOut
+    */
+    // Transmitting data pre-stored in data RAM
     } is(sSend){
       when(!io.powerOn){
         state := sIdle
@@ -160,7 +177,11 @@ class Control (val frameWidth: Int,
       }elsewhen(txDataAddr < dataRamSize.asUInt){
         txDataAddr := txDataAddr + 1.U
         dataOut := dataRam.read(txDataAddr)
-
+        dataOutValid := true.B
+      }.otherwise{
+        state := sReceive
+        dataOutValid := false.B
+        sendEn := false.B
       }
     }
   }
