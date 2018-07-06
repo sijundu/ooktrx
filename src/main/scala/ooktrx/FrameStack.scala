@@ -18,7 +18,7 @@ import chisel3.core.requireIsChiselType
 //  Note:   Width of specific sections may vary
 
 
-class FrameStackRx//[T <: Data]
+class FrameStack//[T <: Data]
                    (//val gen: T,
                     val frameWidth: Int,
                     val StackSize: Int
@@ -56,7 +56,7 @@ class FrameStackRx//[T <: Data]
     stackUsed := stackUsed + 1.U
     frameValidOut := false.B
     writeMemIndex := Mux(writeMemIndex === (StackSize-1).asUInt, 0.U, writeMemIndex + 1.U)
-  }.elsewhen(io.requestIn && stackUsed > 0.U){
+  }.elsewhen(io.requestIn && !frameValidOut && stackUsed > 0.U){
     //frameOut := stack(readMemIndex)
     frameOut := stack.read(readMemIndex)
     stackUsed := stackUsed - 1.U

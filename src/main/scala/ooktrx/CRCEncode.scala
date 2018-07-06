@@ -27,6 +27,7 @@ class CRCEncode (val dataWidth: Int,
     val divisor = Input(UInt(divisorWidth.W))
     val dataIn = Input(UInt(dataWidth.W))
     val validIn = Input(Bool())
+    val requestIn = Input(Bool())
     val dataOut = Output(UInt((dataWidth+divisorWidth-1).W))
     val validOut = Output(Bool())
     val requestData = Output(Bool())
@@ -65,10 +66,11 @@ class CRCEncode (val dataWidth: Int,
   }
   */
 
-  when(requestData && io.validIn){
+  when(io.requestIn && requestData && io.validIn){
     dataExtended := io.dataIn << (divisorWidth - 1)
     requestData := false.B
     counter := 0.U
+    validOut := false.B
   }.elsewhen(!validOut && !requestData){
     when(dataExtended < (1.U << (divisorWidth-1))){
       dataOut := Cat(io.dataIn, dataExtended(divisorWidth-2, 0))

@@ -8,7 +8,7 @@ import scala.util.Random
 import dsptools.numbers._
 import chisel3.experimental._
 
-class FrameStackRxTester(val c: FrameStackRx) extends DspTester(c) {
+class FrameStackRxTester(val c: FrameStack) extends DspTester(c) {
   
   var numberOfSteps = 0
   var frameValid = false.B
@@ -37,7 +37,7 @@ class FrameStackRxSpec extends FreeSpec with Matchers {
   val frameWidthNb = 20
   val StackSizeNb = 16
   "Frame Stack for Rx first test" in {
-    val gen = () => new FrameStackRx(frameWidth = frameWidthNb, StackSize = StackSizeNb)
+    val gen = () => new FrameStack(frameWidth = frameWidthNb, StackSize = StackSizeNb)
     dsptools.Driver.execute(
       gen, Array(
         "--backend-name", "verilator",

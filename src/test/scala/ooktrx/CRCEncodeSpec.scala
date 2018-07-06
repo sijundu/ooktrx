@@ -17,7 +17,7 @@ class CRCEncodeTester(val c: CRCEncode) extends DspTester(c) {
 
   while(numberOfSteps < 2000) {
     if(numberOfSteps%20 == 0){
-      poke(c.io.dataIn, Random.nextInt(math.pow(2, c.dataWidth - c.divisorWidth + 1).toInt).asUInt)
+      poke(c.io.dataIn, Random.nextInt(math.pow(2, c.dataWidth).toInt).asUInt)
       validIn = true.B
     } else{
       validIn = false.B

@@ -56,7 +56,7 @@ class OOKRx (val frameWidth: Int,
   */
 
   val frameSync = Module(new FrameSync(frameBitsWidth, frameWidth))
-  val frameStackRx = Module(new FrameStackRx(frameWidth, stackSize))
+  val frameStackRx = Module(new FrameStack(frameWidth, stackSize))
   val crcCheck = Module(new CRCCheck(frameWidth, frameIndexWidth, dataWidth, divisorWidth))
 
   // IOs of OOKRx
