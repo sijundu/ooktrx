@@ -42,5 +42,4 @@ class Ram   (val frameWidth: Int,
     val rdData = Output(UInt(frameWidth.W))
   })
 
-
 }
