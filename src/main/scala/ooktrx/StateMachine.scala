@@ -54,6 +54,7 @@ class StateMachine (
     val sendEn = Output(Bool())
   })
 
+  /*
   ////////////  Output initilization  /////////////
   val frameBits = RegInit(0.U(frameBitsWidth.W))
   io.frameBits := frameBits
@@ -161,14 +162,12 @@ class StateMachine (
           sendEn := false.B
         }
       }
-    /*
-    } is(sResend){
-      when(!io.powerOn){
-        state := sIdle
-        sendEn := false.B
-      }.otherwise{
-        dataOut
-    */
+    //} is(sResend){
+    //  when(!io.powerOn){
+    //    state := sIdle
+    //    sendEn := false.B
+    // }.otherwise{
+    //    dataOut
     // Transmitting data pre-stored in data RAM
     } is(sSend){
       when(!io.powerOn){
@@ -185,6 +184,7 @@ class StateMachine (
       }
     }
   }
+  */
 
 
 }
