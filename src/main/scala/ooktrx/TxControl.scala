@@ -17,14 +17,14 @@ import chisel3.util._
 //  Note:   Width of specific sections may vary
 
 
-class RxControl (
+class TxControl (
              val frameWidth: Int,
              val frameBitsWidth: Int,
              val frameIndexWidth: Int,
              val dataWidth: Int,
              val divisorWidth: Int,
-             val rxStackSize: Int,
-             val rxMemSize: Int
+             val txStackSize: Int,
+             val txMemSize: Int
             ) extends Module{
 
   require(frameWidth > 19, s"Frame Width must be at least 20, got $frameWidth")
@@ -32,27 +32,24 @@ class RxControl (
   require(frameIndexWidth > 3, s"Frame Index Width must be at least 4, got $frameIndexWidth")
   require(dataWidth > 7, s"Data Width must be at least 8, got $dataWidth")
   require(divisorWidth > 3, s"Divisor Width must be at least 4, got $divisorWidth")
-
   require(frameWidth == (frameBitsWidth + frameIndexWidth + dataWidth + divisorWidth -1), s"The total frame width must be legal")
 
   val io = IO(new Bundle{
-    val rxStart = Input(Bool())
-    val in = Input(Bool())
     val frameBits = Input(UInt(frameBitsWidth.W))
     val divisor = Input(UInt(divisorWidth.W))
-    val frameCount = Input(UInt((log2Ceil(rxMemSize).toInt).W))
 
-    val readDataRequest = Input(Bool())
+    val txStart = Input(Bool())
+    val dataIn = Input(UInt((frameIndexWidth + dataWidth).W))
+    val dataInValid = Input(Bool())
+    val frameCount = Input(UInt((log2Ceil(txMemSize).toInt).W))
 
-    val dataOut = Output(UInt((1 + frameIndexWidth + dataWidth).W))
-    val dataOutValid = Output(Bool())
+    val txMemFull = Output(Bool())
+    val out = Output(Bool())
+    val requestData = Output(Bool())
   })
 
   // Output initilization
-  val dataOut = RegInit(0.U((1 + frameIndexWidth + dataWidth).W))
-  io.dataOut := dataOut
-  val dataOutValid = RegInit(Bool(), false.B)
-  io.dataOutValid := dataOutValid
+  val dataInBuffer = RegInit(0.U((frameIndexWidth + dataWidth).W))
   
 
   ///////////////////////////////////////////////////////////////////////////////////
@@ -64,76 +61,69 @@ class RxControl (
   //   A: crcPass flag (1.W)
   //   B: frame index, used to request resending data if crcPass flag is de-asserted. (frameIndexWidth.W)
   //   C: information data. (dataWidth.W)
-  val rxMem = Mem(rxMemSize, UInt((1 + frameIndexWidth + dataWidth).W))
+  val txMem = Mem(txMemSize, UInt((frameIndexWidth + dataWidth).W))
   ///////////////////////////////////////////////////////////////////////////////////
 
-
-  val writeAddr = RegInit(0.U((log2Ceil(rxMemSize).toInt).W))
-  val readAddr = RegInit(0.U((log2Ceil(rxMemSize).toInt).W))
+  val writeAddr = RegInit(0.U((log2Ceil(txMemSize).toInt).W))
+  val readAddr = RegInit(0.U((log2Ceil(txMemSize).toInt).W))
   
-  // Gated input bits with "enable"
-  val bitInEn = RegInit(Bool(), false.B)
-  val bitIn = Wire(Bool())
-  bitIn := Mux(bitInEn, io.in, false.B)
-
   // Implementation of OOKRx block
-  val ookrx = Module(new OOKRx(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth, rxStackSize))
-  ookrx.io.in := bitIn
-  ookrx.io.frameBits := io.frameBits
-  ookrx.io.divisor := io.divisor
+  val ooktx = Module(new OOKTx(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth, txStackSize))
+  io.out := ooktx.io.out
+  ooktx.io.frameBits := io.frameBits
+  ooktx.io.divisor := io.divisor
+  val dataToSend = RegInit(0.U((frameIndexWidth + dataWidth).W))
+  ooktx.io.dataIn := dataToSend(dataWidth-1, 0)
+  ooktx.io.frameIndex := dataToSend(frameIndexWidth+dataWidth-1, dataWidth)
+  val dataToSendValid = RegInit(Bool(), false.B)
+  ooktx.io.dataInValid := dataToSendValid
+  val sendEn = RegInit(Bool(),false.B)
+  ooktx.io.sendEn := sendEn
+
 
   // Internal registers
-  val frameCount = RegInit(0.U((log2Ceil(rxMemSize).toInt).W))
-  val memUsage = RegInit(0.U((log2Ceil(rxMemSize+1).toInt).W))
+  val frameCount = RegInit(0.U((log2Ceil(txMemSize).toInt).W))
+  val memUsage = RegInit(0.U((log2Ceil(txMemSize+1).toInt).W))
 
   // Stat Machine definition
-  val sIdle :: sRx :: sLoad :: Nil = Enum(3)
+  val sIdle :: sLoad :: sTx :: Nil = Enum(3)
   val state = Reg(init = sIdle)
+
+  io.txMemFull := Mux(memUsage < txMemSize.asUInt, false.B, true.B)
 
   //////////////////// State machine implementation //////////////////
   switch(state){
     is(sIdle){
-      when(io.rxStart){
-        frameCount := io.frameCount
-        bitInEn := true.B
-        state := sRx
-      }.elsewhen(io.readDataRequest){
+      when(io.txStart){
         frameCount := io.frameCount
         state := sLoad
-      }
-    }
-    is(sRx){
-      when((memUsage < rxMemSize.asUInt) && (frameCount > 0.U)){
-        when(ookrx.io.dataOutReady){
-          rxMem.write(writeAddr, Cat(ookrx.io.crcPass, ookrx.io.dataOutIndex, ookrx.io.dataOut))
-          writeAddr := Mux(writeAddr === (rxMemSize-1).asUInt, 0.U, writeAddr + 1.U)
-          memUsage := memUsage + 1.U
-          frameCount := frameCount - 1.U
-        }
-      }.elsewhen(io.readDataRequest){
-        frameCount := io.frameCount
-        bitInEn := false.B
-        state := sLoad
-      }.otherwise{
-        bitInEn := false.B
-        state := sIdle
       }
     }
     is(sLoad){
-      when((memUsage > 0.U) && (frameCount > 0.U)){
-        dataOut := rxMem.read(readAddr)
-        dataOutValid := true.B
-        readAddr := Mux(readAddr === (rxMemSize-1).asUInt, 0.U, readAddr + 1.U)
+      when(memUsage < txMemSize.asUInt && (frameCount > 0.U)){
+        when(ooktx.io.dataInValid){
+          txMem.write(writeAddr, io.dataIn)
+          writeAddr := Mux(writeAddr === (txMemSize-1).asUInt, 0.U, writeAddr + 1.U)
+          memUsage := memUsage + 1.U
+          frameCount := frameCount - 1.U
+        }
+      }.elsewhen(ooktx.io.requestData){
+        sendEn := true.B
+        state := sTx
+      }
+    }
+    is(sTx){
+      when(memUsage > 0.U && ooktx.io.requestData){
+        dataToSend := txMem.read(readAddr)
+        dataToSendValid := true.B
+        readAddr := Mux(readAddr === (txMemSize-1).asUInt, 0.U, readAddr + 1.U)
         memUsage := memUsage - 1.U
-        frameCount := frameCount - 1.U
-      }.elsewhen(io.rxStart){
-        dataOutValid := false.B
-        frameCount := io.frameCount
-        state := sRx
       }.otherwise{
-        dataOutValid := false.B
+        sendEn := false.B
+        dataToSendValid := false.B
         state := sIdle
       }
     }
   }
+
 }
