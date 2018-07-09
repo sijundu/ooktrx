@@ -6,3 +6,8 @@ To run the tester:
 ```sh
 sbt 'testOnly ooktrx.{testblock}Spec'
 ```
+
+# Top-level simulation, run:
+```sh
+sbt 'testOnly ooktrx.SimulatorSpec'
+```
