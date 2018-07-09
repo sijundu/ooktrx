@@ -55,12 +55,11 @@ class TxControl (
   ///////////////////////////////////////////////////////////////////////////////////
   // Implement data ram to store received data
   // rxMem data structure:
-  //    0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
-  //  |  |           |                                                |
-  //   A      B                             C
-  //   A: crcPass flag (1.W)
-  //   B: frame index, used to request resending data if crcPass flag is de-asserted. (frameIndexWidth.W)
-  //   C: information data. (dataWidth.W)
+  //    0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0  0
+  //   |           |                                                |
+  //         A                             B
+  // A: frame index, used to request resending data if crcPass flag is de-asserted. (frameIndexWidth.W)
+  // B: information data. (dataWidth.W)
   val txMem = Mem(txMemSize, UInt((frameIndexWidth + dataWidth).W))
   ///////////////////////////////////////////////////////////////////////////////////
 
@@ -93,6 +92,7 @@ class TxControl (
 
   //////////////////// State machine implementation //////////////////
   switch(state){
+    // Waiting for data to be sent
     is(sIdle){
       when(io.txStart){
         state := sLoad
@@ -106,6 +106,7 @@ class TxControl (
         }
       }
     }
+    // Load data into Tx memory for sending
     is(sLoad){
       when(memUsage < txMemSize.asUInt && (frameCount > 0.U)){
         when(io.dataInValid){
@@ -119,6 +120,7 @@ class TxControl (
         state := sTx
       }
     }
+    // Sequentially (FIFO) send data store in Tx memory
     is(sTx){
       when(memUsage > 0.U){
         when(ooktx.io.requestData && !dataToSendValid){

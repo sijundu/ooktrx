@@ -42,7 +42,7 @@ class RxControl (
     val divisor = Input(UInt(divisorWidth.W))
     val frameCount = Input(UInt((log2Ceil(rxMemSize).toInt).W))
 
-    val readDataRequest = Input(Bool())
+    //val readDataRequest = Input(Bool())
 
     val dataOut = Output(UInt((1 + frameIndexWidth + dataWidth).W))
     val dataOutValid = Output(Bool())
@@ -97,9 +97,9 @@ class RxControl (
         frameCount := io.frameCount
         bitInEn := true.B
         state := sRx
-      }.elsewhen(io.readDataRequest){
-        frameCount := io.frameCount
-        state := sLoad
+      //}.elsewhen(io.readDataRequest){
+      //  frameCount := io.frameCount
+      //  state := sLoad
       }
     }
     is(sRx){
@@ -110,17 +110,19 @@ class RxControl (
           memUsage := memUsage + 1.U
           frameCount := frameCount - 1.U
         }
-      }.elsewhen(io.readDataRequest){
+      //}.elsewhen(io.readDataRequest){
+      //  frameCount := io.frameCount
+      //  bitInEn := false.B
+      //  state := sLoad
+      }.otherwise{
         frameCount := io.frameCount
         bitInEn := false.B
         state := sLoad
-      }.otherwise{
-        bitInEn := false.B
-        state := sIdle
       }
     }
     is(sLoad){
-      when((memUsage > 0.U) && (frameCount > 0.U)){
+      //when((memUsage > 0.U) && (frameCount > 0.U)){
+      when(memUsage > 0.U){
         dataOut := rxMem.read(readAddr)
         dataOutValid := true.B
         readAddr := Mux(readAddr === (rxMemSize-1).asUInt, 0.U, readAddr + 1.U)

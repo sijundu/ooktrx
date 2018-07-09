@@ -24,11 +24,11 @@ class RxControlRandomInputTester(val c: RxControl) extends DspTester(c) {
     if(numberOfSteps % 1000 == 100){
       poke(c.io.rxStart, true.B)
       poke(c.io.frameCount, frameCount)
-    }else if(numberOfSteps % 1000 == 900){
-      poke(c.io.readDataRequest, true.B)
-      poke(c.io.frameCount, frameCount)
+    //}else if(numberOfSteps % 1000 == 900){
+      //poke(c.io.readDataRequest, true.B)
+    //  poke(c.io.frameCount, frameCount)
     }else{
-      poke(c.io.readDataRequest, false.B)
+      //poke(c.io.readDataRequest, false.B)
       poke(c.io.rxStart, false.B)
       poke(c.io.frameCount, 0.U)
     }
