@@ -39,35 +39,29 @@ class OOKTx (val frameWidth: Int,
     val divisor = Input(UInt(divisorWidth.W))
     val frameBits = Input(UInt(frameBitsWidth.W))
     val frameIndex = Input(UInt(frameIndexWidth.W))
-    val sendEn = Input(Bool())
+    //val sendEn = Input(Bool())
     val requestData = Output(Bool())
     val out = Output(Bool())
   })
 
-  val crcEncode = Module(new CRCEncode(dataWidth, divisorWidth))
-  val framePrep = Module(new FramePrep(frameWidth, frameBitsWidth, frameIndexWidth))
+  val crcEncode = Module(new CRCEncode(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth))
   val frameStackTx = Module(new FrameStack(frameWidth,stackSize))
   val frameSend = Module(new FrameSend(frameWidth))
 
   // IOs of OOK TX
   io.out := frameSend.io.out
   io.requestData := crcEncode.io.requestData
-  frameSend.io.sendEn := io.sendEn
+  //frameSend.io.sendEn := io.sendEn
   crcEncode.io.dataIn := io.dataIn
   crcEncode.io.validIn := io.dataInValid
   crcEncode.io.divisor := io.divisor
-  framePrep.io.frameBits := io.frameBits
-  framePrep.io.frameIndex := io.frameIndex
+  crcEncode.io.frameBits := io.frameBits
+  crcEncode.io.frameIndex := io.frameIndex
 
-  // Interfaces between CRC Encode and Frame Preparation
-  framePrep.io.dataIn := crcEncode.io.dataOut
-  framePrep.io.dataInValid := crcEncode.io.validOut
-  crcEncode.io.requestIn := framePrep.io.requestOut
-
-  // Interfaces between Frame Preparation and Frame Stack
-  frameStackTx.io.in := framePrep.io.frameOut
-  frameStackTx.io.frameValidIn := framePrep.io.dataOutValid
-  framePrep.io.requestIn := frameStackTx.io.requestOut
+  // Interfaces between CRCEncode and Frame Stack
+  frameStackTx.io.in := crcEncode.io.frameOut
+  frameStackTx.io.frameValidIn := crcEncode.io.validOut
+  crcEncode.io.requestIn := frameStackTx.io.requestOut
 
   // Interfaces between Frame Stack and FrameSend
   frameStackTx.io.requestIn := frameSend.io.requestFrame

@@ -19,7 +19,7 @@ class OOKTxRandomInputTester(val c: OOKTx) extends DspTester(c) {
   poke(c.io.frameBits, frameBits)
   poke(c.io.divisor, divisor)
 
-  poke(c.io.sendEn, true.B)
+  //poke(c.io.sendEn, true.B)
 
   while(numberOfSteps < 5000){
     if(numberOfSteps % 20 == 0){

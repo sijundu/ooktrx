@@ -19,11 +19,6 @@ class FrameSendTester(val c: FrameSend) extends DspTester(c) {
     }else{
       poke(c.io.frameInValid, false.B)
     }
-    if(numberOfSteps % 500 < 480){
-      poke(c.io.sendEn, true.B)
-    }else{
-      poke(c.io.sendEn, false.B)
-    }
     step(1)
     numberOfSteps += 1
   }

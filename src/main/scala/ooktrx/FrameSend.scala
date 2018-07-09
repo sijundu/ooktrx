@@ -25,7 +25,7 @@ class FrameSend (val frameWidth: Int
   val io = IO(new Bundle{
     val frameIn = Input(UInt(frameWidth.W))
     val frameInValid = Input(Bool())
-    val sendEn = Input(Bool())
+    //val sendEn = Input(Bool())
     val out = Output(Bool())
     val requestFrame = Output(Bool())
   })
@@ -40,6 +40,34 @@ class FrameSend (val frameWidth: Int
 
   val counter = RegInit(0.U(log2Ceil(frameWidth+1).toInt.W))
 
+  val sIdle :: sSend :: Nil = Enum(2)
+  val state = Reg(init = sIdle)
+
+  switch(state){
+    is(sIdle){
+      requestFrame := true.B
+      out := false.B
+      counter := 0.U
+      when(requestFrame && io.frameInValid){
+        frameBuffer := io.frameIn
+        requestFrame := false.B
+        counter := 0.U
+        state := sSend
+      }
+    }
+    is(sSend){
+      when(counter < frameWidth.asUInt){
+        out := frameBuffer(frameWidth.asUInt - counter - 1.U)
+        counter := counter + 1.U
+        when(counter === (frameWidth-1).asUInt){
+          requestFrame := true.B
+          state := sIdle
+        }
+      }
+    }
+  }
+
+  /*
   when(io.sendEn){
     when(requestFrame && io.frameInValid){
       frameBuffer := Reverse(io.frameIn)
@@ -60,5 +88,6 @@ class FrameSend (val frameWidth: Int
     counter := 0.U
     frameBuffer := io.frameIn
   }
+  */
 
 }

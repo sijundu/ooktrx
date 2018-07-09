@@ -16,19 +16,29 @@ import chisel3.util._
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
 //  Note:   Width of specific sections may vary
 
-class CRCEncode (val dataWidth: Int,
+class CRCEncode (
+                 val frameWidth: Int,
+                 val frameBitsWidth: Int,
+                 val frameIndexWidth: Int,
+                 val dataWidth: Int,
                  val divisorWidth: Int
                  ) extends Module {
 
-  require(divisorWidth >= 2, s"Divider bit width must be >= 2, got $divisorWidth")
+  require(frameWidth > 19, s"Frame Width must be at least 20, got $frameWidth")
+  require(frameBitsWidth > 3, s"Frame Bits Width must be at least 4, got $frameBitsWidth")
+  require(frameIndexWidth > 3, s"Frame Index Width must be at least 4, got $frameIndexWidth")
   require(dataWidth >= 8, s"Data bit width must be >= 8, got $dataWidth")
+  require(divisorWidth >= 2, s"Divider bit width must be >= 2, got $divisorWidth")
+  require(frameWidth == (frameBitsWidth + frameIndexWidth + dataWidth + divisorWidth -1), s"The total frame width must be legal")
 
   val io = IO(new Bundle{
     val divisor = Input(UInt(divisorWidth.W))
+    val frameBits = Input(UInt(frameBitsWidth.W))
+    val frameIndex = Input(UInt(frameIndexWidth.W))
     val dataIn = Input(UInt(dataWidth.W))
     val validIn = Input(Bool())
     val requestIn = Input(Bool())
-    val dataOut = Output(UInt((dataWidth+divisorWidth-1).W))
+    val frameOut = Output(UInt(frameWidth.W))
     val validOut = Output(Bool())
     val requestData = Output(Bool())
     //val debugXor = Output(UInt(divisorWidth.W))
@@ -46,8 +56,12 @@ class CRCEncode (val dataWidth: Int,
   val validOut = RegInit(Bool(), false.B)
   io.validOut := validOut
 
-  val dataOut = RegInit(0.U((dataWidth+divisorWidth-1).W))
-  io.dataOut := dataOut
+  val frameBitsBuffer = RegInit(0.U(frameBitsWidth.W))
+  val frameIndexBuffer = RegInit(0.U(frameIndexWidth.W))
+  val dataInBuffer = RegInit(0.U(dataWidth.W))
+
+  val frameOut = RegInit(0.U(frameWidth.W))
+  io.frameOut := frameOut
 
   /*
   val debugXor = RegInit(0.U(divisorWidth.W))
@@ -67,17 +81,20 @@ class CRCEncode (val dataWidth: Int,
   */
 
   when(io.requestIn && requestData && io.validIn){
+    frameBitsBuffer := io.frameBits
+    frameIndexBuffer := io.frameIndex
+    dataInBuffer := io.dataIn
     dataExtended := io.dataIn << (divisorWidth - 1)
     requestData := false.B
     counter := 0.U
     validOut := false.B
   }.elsewhen(!validOut && !requestData){
     when(dataExtended < (1.U << (divisorWidth-1))){
-      dataOut := Cat(io.dataIn, dataExtended(divisorWidth-2, 0))
+      frameOut := Cat(frameBitsBuffer, frameIndexBuffer, dataInBuffer, dataExtended(divisorWidth-2, 0))
       validOut := true.B
       requestData := true.B
     }.elsewhen(dataExtended === io.divisor){
-      dataOut := io.dataIn << (divisorWidth-1)
+      frameOut := Cat(frameBitsBuffer, frameIndexBuffer, (dataInBuffer << (divisorWidth-1)))
       validOut := true.B
       requestData := true.B
     }.otherwise{

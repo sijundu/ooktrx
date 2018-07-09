@@ -14,6 +14,8 @@ class CRCEncodeTester(val c: CRCEncode) extends DspTester(c) {
   var validIn = false.B
 
   poke(c.io.divisor, divisor)
+  poke(c.io.frameBits, "b1111".asUInt(c.frameBitsWidth.W))
+  poke(c.io.frameBits, "b1001".asUInt(c.frameIndexWidth.W))
 
   while(numberOfSteps < 2000) {
     if(numberOfSteps%20 == 0){
@@ -30,9 +32,11 @@ class CRCEncodeTester(val c: CRCEncode) extends DspTester(c) {
 
 class CRCEncodeSpec extends FreeSpec with Matchers {
   "CRC Encoding first test" in {
-    val dataWidthNb = 9
-    val divisorWidthNb = 4
-    val gen = () => new CRCEncode(dataWidthNb, divisorWidthNb)
+    val gen = () => new CRCEncode(frameWidth = 20,
+                              frameBitsWidth = 4,
+                              frameIndexWidth = 4,
+                              dataWidth = 9,
+                              divisorWidth = 4)
     dsptools.Driver.execute(
       gen, Array(
         "--backend-name", "verilator",
