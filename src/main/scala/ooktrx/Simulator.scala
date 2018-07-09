@@ -52,6 +52,7 @@ class Simulator (
   val txControl = Module(new TxControl(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth, txStackSize, txMemSize))
   val rxControl = Module(new RxControl(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth, rxStackSize, rxMemSize))
 
+  // Simulating the data transmission in air
   val dataInAir = RegNext(txControl.io.out)
   rxControl.io.in := dataInAir
 
