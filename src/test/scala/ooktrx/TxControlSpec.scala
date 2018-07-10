@@ -15,6 +15,8 @@ class TxControlRandomInputTester(val c: TxControl) extends DspTester(c) {
   val divisor = "b1101".asUInt(c.divisorWidth.W)
   var numberOfSteps = 0
   var randomFrameBits = Random.nextInt(2)
+  
+  poke(c.io.txEn, true.B)
 
   poke(c.io.frameBits, frameBits)
   poke(c.io.divisor, divisor)
@@ -23,18 +25,12 @@ class TxControlRandomInputTester(val c: TxControl) extends DspTester(c) {
     if((numberOfSteps >= 100) && (numberOfSteps < 110)){
       poke(c.io.dataIn, Random.nextInt(math.pow(2, (c.frameIndexWidth+c.dataWidth)).toInt).asUInt)
       poke(c.io.dataInValid, true.B)
-      poke(c.io.txStart, true.B)
-      poke(c.io.frameCount, 10.U)
     }else if((numberOfSteps >= 1100) && (numberOfSteps < 1118)){
       poke(c.io.dataIn, Random.nextInt(math.pow(2, (c.frameIndexWidth+c.dataWidth)).toInt).asUInt)
       poke(c.io.dataInValid, true.B)
-      poke(c.io.txStart, true.B)
-      poke(c.io.frameCount, 18.U)
     }else{
       poke(c.io.dataIn, 0.U(c.dataWidth.W))
       poke(c.io.dataInValid, false.B)
-      poke(c.io.txStart, false.B)
-      poke(c.io.frameCount, 0.U)
     }
     step(1)
     numberOfSteps += 1

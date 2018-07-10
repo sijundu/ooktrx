@@ -17,7 +17,7 @@ import chisel3.util._
 //  Note:   Width of specific sections may vary
 
 
-class RxControl_backup (
+class RxControl_old (
              val frameWidth: Int,
              val frameBitsWidth: Int,
              val frameIndexWidth: Int,
@@ -36,15 +36,14 @@ class RxControl_backup (
   require(frameWidth == (frameBitsWidth + frameIndexWidth + dataWidth + divisorWidth -1), s"The total frame width must be legal")
 
   val io = IO(new Bundle{
-    val rxEn = Input(Bool())
+    val rxStart = Input(Bool())
     val in = Input(Bool())
     val frameBits = Input(UInt(frameBitsWidth.W))
     val divisor = Input(UInt(divisorWidth.W))
     val frameCount = Input(UInt((log2Ceil(rxMemSize).toInt).W))
 
-    val readDataRequest = Input(Bool())
+    //val readDataRequest = Input(Bool())
 
-    val rxBusy = Output(Bool())
     val dataOut = Output(UInt((1 + frameIndexWidth + dataWidth).W))
     val dataOutValid = Output(Bool())
   })
@@ -54,8 +53,6 @@ class RxControl_backup (
   io.dataOut := dataOut
   val dataOutValid = RegInit(Bool(), false.B)
   io.dataOutValid := dataOutValid
-  val rxBusy = RegInit(Bool(), false.B)
-  io.rxBusy := rxBusy
   
 
   ///////////////////////////////////////////////////////////////////////////////////
@@ -71,10 +68,13 @@ class RxControl_backup (
   ///////////////////////////////////////////////////////////////////////////////////
 
 
-  val rxDataAddr = RegInit(0.U((log2Ceil(rxMemSize+1).toInt).W))
-
+  val writeAddr = RegInit(0.U((log2Ceil(rxMemSize).toInt).W))
+  val readAddr = RegInit(0.U((log2Ceil(rxMemSize).toInt).W))
+  
+  // Gated input bits with "enable"
+  val bitInEn = RegInit(Bool(), false.B)
   val bitIn = Wire(Bool())
-  bitIn := Mux(io.rxEn, io.in, false.B)
+  bitIn := Mux(bitInEn, io.in, false.B)
 
   // Implementation of OOKRx block
   val ookrx = Module(new OOKRx(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth, rxStackSize))
@@ -82,51 +82,60 @@ class RxControl_backup (
   ookrx.io.frameBits := io.frameBits
   ookrx.io.divisor := io.divisor
 
+  // Internal registers
   val frameCount = RegInit(0.U((log2Ceil(rxMemSize).toInt).W))
+  val memUsage = RegInit(0.U((log2Ceil(rxMemSize+1).toInt).W))
 
-  // Assert rxEnReg when io.rxEn changes from low to high
-  val rxEnReg = RegInit(Bool(), false.B)
-  val rxEnNext = RegNext(io.rxEn)
-  when(io.rxEn && (io.rxEn ^ rxEnNext)){
-    rxEnReg := true.B
-    frameCount := io.frameCount
-  }.elsewhen(rxEnReg && rxDataAddr === (frameCount )){
-    rxEnReg := false.B
-  }
+  // Stat Machine definition
+  val sIdle :: sRx :: sLoad :: Nil = Enum(3)
+  val state = Reg(init = sIdle)
 
-
-  val readDataEn = RegInit(Bool(), false.B)
-  val readDataNext = RegNext(io.readDataRequest)
-  when(io.readDataRequest && (io.readDataRequest ^ readDataNext)){
-    readDataEn := true.B
-  }.elsewhen(readDataEn && rxDataAddr === (frameCount - 1.U)){
-    readDataEn := false.B
-  }
-
-
-  when(rxEnReg){
-    when(ookrx.io.dataOutReady){
-      when(rxDataAddr < frameCount){
-        rxBusy := true.B
-        rxMem.write(rxDataAddr, Cat(ookrx.io.crcPass, ookrx.io.dataOutIndex, ookrx.io.dataOut))
-        when(rxDataAddr === (frameCount - 1.U)){
-          rxBusy := false.B
-          rxDataAddr := 0.U
-        }.otherwise{
-          rxDataAddr := rxDataAddr + 1.U
+  //////////////////// State machine implementation //////////////////
+  switch(state){
+    is(sIdle){
+      when(io.rxStart){
+        frameCount := io.frameCount
+        bitInEn := true.B
+        state := sRx
+      //}.elsewhen(io.readDataRequest){
+      //  frameCount := io.frameCount
+      //  state := sLoad
+      }
+    }
+    is(sRx){
+      when((memUsage < rxMemSize.asUInt) && (frameCount > 0.U)){
+        when(ookrx.io.dataOutReady){
+          rxMem.write(writeAddr, Cat(ookrx.io.crcPass, ookrx.io.dataOutIndex, ookrx.io.dataOut))
+          writeAddr := Mux(writeAddr === (rxMemSize-1).asUInt, 0.U, writeAddr + 1.U)
+          memUsage := memUsage + 1.U
+          frameCount := frameCount - 1.U
         }
+      //}.elsewhen(io.readDataRequest){
+      //  frameCount := io.frameCount
+      //  bitInEn := false.B
+      //  state := sLoad
+      }.otherwise{
+        frameCount := io.frameCount
+        bitInEn := false.B
+        state := sLoad
       }
     }
-  }.elsewhen(readDataEn && !rxBusy){
-    when (rxDataAddr < frameCount){
-      dataOut := rxMem.read(rxDataAddr)
-      dataOutValid := true.B
-      when(rxDataAddr === (frameCount - 1.U)){
-        rxDataAddr := 0.U
+    is(sLoad){
+      //when((memUsage > 0.U) && (frameCount > 0.U)){
+      when(memUsage > 0.U){
+        dataOut := rxMem.read(readAddr)
+        dataOutValid := true.B
+        readAddr := Mux(readAddr === (rxMemSize-1).asUInt, 0.U, readAddr + 1.U)
+        memUsage := memUsage - 1.U
+        frameCount := frameCount - 1.U
+      }.elsewhen(io.rxStart){
+        dataOutValid := false.B
+        frameCount := io.frameCount
+        state := sRx
       }.otherwise{
-        rxDataAddr := rxDataAddr + 1.U
+        dataOutValid := false.B
+        state := sIdle
       }
     }
   }
-
 }

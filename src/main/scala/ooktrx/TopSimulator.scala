@@ -18,7 +18,7 @@ import chisel3.util._
 //  Note:   Width of specific sections may vary
 
 
-class Simulator (
+class TopSimulator (
              val frameWidth: Int,
              val frameBitsWidth: Int,
              val frameIndexWidth: Int,
@@ -47,25 +47,29 @@ class Simulator (
     val dataOutReady = Output(Bool())
   })
 
-  val txControl = Module(new TxControl(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth, txStackSize, txMemSize))
-  val rxControl = Module(new RxControl(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth, rxStackSize, rxMemSize))
+  val tx = Module(new TopControl(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth, txStackSize, txMemSize, rxStackSize, rxMemSize))
+  val rx = Module(new TopControl(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth, txStackSize, txMemSize, rxStackSize, rxMemSize))
 
   // Simulating the data transmission in air
-  val dataInAir = RegNext(txControl.io.out)
-  rxControl.io.in := dataInAir
+  val dataInAir = RegNext(tx.io.bitTx)
 
-  io.dataOut := rxControl.io.dataOut
-  io.dataOutReady := rxControl.io.dataOutReady
-
-  txControl.io.frameBits := io.frameBits
-  txControl.io.divisor := io.divisor
-  txControl.io.txEn := true.B
-  txControl.io.dataIn := io.dataIn
-  txControl.io.dataInValid := io.dataInValid
+  // TX
+  tx.io.frameBits := io.frameBits
+  tx.io.divisor := io.divisor
+  tx.io.txMode := true.B
+  tx.io.dataToSend := io.dataIn
+  tx.io.dataToSendValid := io.dataInValid
+  tx.io.bitRx := false.B
   
-  rxControl.io.rxEn := true.B
-  rxControl.io.frameBits := io.frameBits
-  rxControl.io.divisor:= io.divisor
+  // RX
+  rx.io.dataToSend := 0.U
+  rx.io.dataToSendValid := 0.U
+  rx.io.frameBits := io.frameBits
+  rx.io.divisor:= io.divisor
+  rx.io.txMode := false.B
+  rx.io.bitRx := dataInAir
+  io.dataOut := rx.io.dataRx
+  io.dataOutReady := rx.io.dataRxReady
   
 
 }

@@ -36,23 +36,23 @@ class RxControl (
   require(frameWidth == (frameBitsWidth + frameIndexWidth + dataWidth + divisorWidth -1), s"The total frame width must be legal")
 
   val io = IO(new Bundle{
-    val rxStart = Input(Bool())
+    val rxEn = Input(Bool())
     val in = Input(Bool())
     val frameBits = Input(UInt(frameBitsWidth.W))
     val divisor = Input(UInt(divisorWidth.W))
-    val frameCount = Input(UInt((log2Ceil(rxMemSize).toInt).W))
+    //val frameCount = Input(UInt((log2Ceil(rxMemSize).toInt).W))
 
     //val readDataRequest = Input(Bool())
 
     val dataOut = Output(UInt((1 + frameIndexWidth + dataWidth).W))
-    val dataOutValid = Output(Bool())
+    val dataOutReady = Output(Bool())
   })
 
   // Output initilization
   val dataOut = RegInit(0.U((1 + frameIndexWidth + dataWidth).W))
   io.dataOut := dataOut
-  val dataOutValid = RegInit(Bool(), false.B)
-  io.dataOutValid := dataOutValid
+  val dataOutReady = RegInit(Bool(), false.B)
+  io.dataOutReady := dataOutReady
   
 
   ///////////////////////////////////////////////////////////////////////////////////
@@ -71,14 +71,9 @@ class RxControl (
   val writeAddr = RegInit(0.U((log2Ceil(rxMemSize).toInt).W))
   val readAddr = RegInit(0.U((log2Ceil(rxMemSize).toInt).W))
   
-  // Gated input bits with "enable"
-  val bitInEn = RegInit(Bool(), false.B)
-  val bitIn = Wire(Bool())
-  bitIn := Mux(bitInEn, io.in, false.B)
-
   // Implementation of OOKRx block
   val ookrx = Module(new OOKRx(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth, rxStackSize))
-  ookrx.io.in := bitIn
+  ookrx.io.in := Mux(io.rxEn, io.in, false.B)
   ookrx.io.frameBits := io.frameBits
   ookrx.io.divisor := io.divisor
 
@@ -87,54 +82,42 @@ class RxControl (
   val memUsage = RegInit(0.U((log2Ceil(rxMemSize+1).toInt).W))
 
   // Stat Machine definition
-  val sIdle :: sRx :: sLoad :: Nil = Enum(3)
+  val sIdle :: sRx :: Nil = Enum(2)
   val state = Reg(init = sIdle)
 
   //////////////////// State machine implementation //////////////////
   switch(state){
     is(sIdle){
-      when(io.rxStart){
-        frameCount := io.frameCount
-        bitInEn := true.B
+      when(io.rxEn){
         state := sRx
-      //}.elsewhen(io.readDataRequest){
-      //  frameCount := io.frameCount
-      //  state := sLoad
       }
     }
     is(sRx){
-      when((memUsage < rxMemSize.asUInt) && (frameCount > 0.U)){
+      when(memUsage < rxMemSize.asUInt){
         when(ookrx.io.dataOutReady){
+          dataOutReady := false.B
           rxMem.write(writeAddr, Cat(ookrx.io.crcPass, ookrx.io.dataOutIndex, ookrx.io.dataOut))
           writeAddr := Mux(writeAddr === (rxMemSize-1).asUInt, 0.U, writeAddr + 1.U)
           memUsage := memUsage + 1.U
-          frameCount := frameCount - 1.U
+        }.elsewhen(memUsage > 0.U){
+          dataOut := rxMem.read(readAddr)
+          dataOutReady := true.B
+          readAddr := Mux(readAddr === (rxMemSize-1).asUInt, 0.U, readAddr + 1.U)
+          memUsage := memUsage - 1.U
+        }.otherwise{
+          dataOutReady := false.B
         }
-      //}.elsewhen(io.readDataRequest){
-      //  frameCount := io.frameCount
-      //  bitInEn := false.B
-      //  state := sLoad
-      }.otherwise{
-        frameCount := io.frameCount
-        bitInEn := false.B
-        state := sLoad
-      }
-    }
-    is(sLoad){
-      //when((memUsage > 0.U) && (frameCount > 0.U)){
-      when(memUsage > 0.U){
+      }.elsewhen(memUsage === rxMemSize.asUInt){
         dataOut := rxMem.read(readAddr)
-        dataOutValid := true.B
+        dataOutReady := true.B
         readAddr := Mux(readAddr === (rxMemSize-1).asUInt, 0.U, readAddr + 1.U)
         memUsage := memUsage - 1.U
-        frameCount := frameCount - 1.U
-      }.elsewhen(io.rxStart){
-        dataOutValid := false.B
-        frameCount := io.frameCount
-        state := sRx
       }.otherwise{
-        dataOutValid := false.B
+        dataOutReady := false.B
+      }
+      when(memUsage === 0.U && !io.rxEn){
         state := sIdle
+        dataOutReady := false.B
       }
     }
   }

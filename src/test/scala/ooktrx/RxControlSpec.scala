@@ -17,10 +17,12 @@ class RxControlRandomInputTester(val c: RxControl) extends DspTester(c) {
   var numberOfSteps = 0
   var randomFrameBits = Random.nextInt(2)
 
+  poke(c.io.rxEn, true.B)
   poke(c.io.frameBits, frameBits)
   poke(c.io.divisor, divisor)
 
   while(numberOfSteps < 5000){
+    /*
     if(numberOfSteps % 1000 == 100){
       poke(c.io.rxStart, true.B)
       poke(c.io.frameCount, frameCount)
@@ -32,6 +34,7 @@ class RxControlRandomInputTester(val c: RxControl) extends DspTester(c) {
       poke(c.io.rxStart, false.B)
       poke(c.io.frameCount, 0.U)
     }
+    */
     randomFrameBits = Random.nextInt(2)
     poke(c.io.in, randomFrameBits != 0)
     step(1)

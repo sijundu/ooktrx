@@ -17,7 +17,7 @@ import chisel3.util._
 //  Note:   Width of specific sections may vary
 
 
-class TxControl (
+class TxControl_old (
              val frameWidth: Int,
              val frameBitsWidth: Int,
              val frameIndexWidth: Int,
@@ -38,12 +38,14 @@ class TxControl (
     val frameBits = Input(UInt(frameBitsWidth.W))
     val divisor = Input(UInt(divisorWidth.W))
 
-    val txEn = Input(Bool())
+    val txStart = Input(Bool())
     val dataIn = Input(UInt((frameIndexWidth + dataWidth).W))
     val dataInValid = Input(Bool())
+    val frameCount = Input(UInt((log2Ceil(txMemSize).toInt+1).W))
 
     val txMemFull = Output(Bool())
     val out = Output(Bool())
+    //val requestData = Output(Bool())
   })
 
   // Output initilization
@@ -72,8 +74,8 @@ class TxControl (
   val dataToSend = RegInit(0.U((frameIndexWidth + dataWidth).W))
   ooktx.io.dataIn := dataToSend(dataWidth-1, 0)
   ooktx.io.frameIndex := dataToSend(frameIndexWidth+dataWidth-1, dataWidth)
-  val dataToSendReady = RegInit(Bool(), false.B)
-  ooktx.io.dataInValid := dataToSendReady
+  val dataToSendValid = RegInit(Bool(), false.B)
+  ooktx.io.dataInValid := dataToSendValid
   //val sendEn = RegInit(Bool(),false.B)
   //ooktx.io.sendEn := sendEn
 
@@ -83,49 +85,55 @@ class TxControl (
   val memUsage = RegInit(0.U((log2Ceil(txMemSize+1).toInt).W))
 
   // Stat Machine definition
-  val sIdle :: sTx :: Nil = Enum(2)
+  val sIdle :: sLoad :: sTx :: Nil = Enum(3)
   val state = Reg(init = sIdle)
 
   io.txMemFull := Mux(memUsage < txMemSize.asUInt, false.B, true.B)
 
-  
   //////////////////// State machine implementation //////////////////
   switch(state){
+    // Waiting for data to be sent
     is(sIdle){
-      when(io.txEn){
-        state := sTx
+      when(io.txStart){
+        state := sLoad
+        when(io.dataInValid){
+          txMem.write(writeAddr, io.dataIn)
+          writeAddr := Mux(writeAddr === (txMemSize-1).asUInt, 0.U, writeAddr + 1.U)
+          frameCount := io.frameCount - 1.U
+          memUsage := memUsage + 1.U
+        }.otherwise{
+          frameCount := io.frameCount
+        }
       }
     }
-    is(sTx){
-      when(memUsage < txMemSize.asUInt){
+    // Load data into Tx memory for sending
+    is(sLoad){
+      when(memUsage < txMemSize.asUInt && (frameCount > 0.U)){
         when(io.dataInValid){
           txMem.write(writeAddr, io.dataIn)
           writeAddr := Mux(writeAddr === (txMemSize-1).asUInt, 0.U, writeAddr + 1.U)
           memUsage := memUsage + 1.U
-          dataToSendReady := false.B
-        }.elsewhen(memUsage > 0.U && ooktx.io.requestData && !dataToSendReady){
-          dataToSend := txMem.read(readAddr)
-          dataToSendReady := true.B
-          readAddr := Mux(readAddr === (txMemSize-1).asUInt, 0.U, readAddr + 1.U)
-          memUsage := memUsage - 1.U
-        }.otherwise{
-          dataToSendReady := false.B
+          frameCount := frameCount - 1.U
         }
-      }.elsewhen(memUsage === txMemSize.asUInt){
-        when(ooktx.io.requestData && !dataToSendReady){
+      }.elsewhen(ooktx.io.requestData){
+        //sendEn := true.B
+        state := sTx
+      }
+    }
+    // Sequentially (FIFO) send data store in Tx memory
+    is(sTx){
+      when(memUsage > 0.U){
+        when(ooktx.io.requestData && !dataToSendValid){
           dataToSend := txMem.read(readAddr)
-          dataToSendReady := true.B
+          dataToSendValid := true.B
           readAddr := Mux(readAddr === (txMemSize-1).asUInt, 0.U, readAddr + 1.U)
           memUsage := memUsage - 1.U
         }.otherwise{
-          dataToSendReady := false.B
+          dataToSendValid := false.B
         }
       }.otherwise{
-        dataToSendReady := false.B
-      }
-      //when(memUsage == 0.U && !txEn){
-      when(!io.txEn){
-        dataToSendReady := false.B
+        //sendEn := false.B
+        dataToSendValid := false.B
         state := sIdle
       }
     }
