@@ -9,6 +9,10 @@ import chisel3.util._
 import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 import scala.util.Random
 
+///////////////////////////////////////////////////////////////////////////////
+// This tester is only used to generated verilog file for FPGA implementation
+// To test the TopControl.scala, please use the tester `TopSimulatorSpec.scala'
+///////////////////////////////////////////////////////////////////////////////
 class TopControlRandomInputTester(val c: TopControl) extends DspTester(c) {
 
   val frameBits = "b1111".asUInt(c.frameBitsWidth.W)
