@@ -62,21 +62,21 @@ class TopControl (
 
 
   // TX interfaces
-  txControl.io.frameBits := io.frameBits
-  txControl.io.divisor := io.divisor
-  txControl.io.txEn := io.txMode
-  txControl.io.dataIn := io.dataToSend
-  txControl.io.dataInValid := io.dataToSendValid
-  io.txMemFull := txControl.io.txMemFull
-  io.bitTx := txControl.io.out
+  txControl.io.frameBits <> io.frameBits
+  txControl.io.divisor <> io.divisor
+  txControl.io.txEn <> io.txMode
+  txControl.io.dataIn <> io.dataToSend
+  txControl.io.dataInValid <> io.dataToSendValid
+  io.txMemFull <> txControl.io.txMemFull
+  io.bitTx <> txControl.io.out
   
   // RX interfaces
-  rxControl.io.frameBits := io.frameBits
-  rxControl.io.divisor:= io.divisor
-  rxControl.io.rxEn := !io.txMode
-  rxControl.io.in := io.bitRx
-  io.dataRx := rxControl.io.dataOut
-  io.dataRxReady := rxControl.io.dataOutReady
+  rxControl.io.frameBits <> io.frameBits
+  rxControl.io.divisor <> io.divisor
+  rxControl.io.rxEn <> !io.txMode
+  rxControl.io.in <> io.bitRx
+  io.dataRx <> rxControl.io.dataOut
+  io.dataRxReady <> rxControl.io.dataOutReady
   
   /*
   val sIdle :: sRxStart :: sTxStart :: Nil = Enum(3)

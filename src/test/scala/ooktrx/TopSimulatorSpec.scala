@@ -9,7 +9,7 @@ import chisel3.util._
 import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 import scala.util.Random
 
-class TopControlRandomInputTester(val c: TopControl) extends DspTester(c) {
+class TopSimulatorRandomInputTester(val c: TopSimulator) extends DspTester(c) {
 
   val frameBits = "b1111".asUInt(c.frameBitsWidth.W)
   val divisor = "b10101".asUInt(c.divisorWidth.W)
@@ -20,7 +20,6 @@ class TopControlRandomInputTester(val c: TopControl) extends DspTester(c) {
   poke(c.io.frameBits, frameBits)
   poke(c.io.divisor, divisor)
 
-  /*
   while(numberOfSteps < 5000){
     if((numberOfSteps > startStepNb) && (numberOfSteps <= (startStepNb+frameNb))){
       poke(c.io.dataIn, (((numberOfSteps-startStepNb) << c.dataWidth)+(Random.nextInt(math.pow(2, (c.dataWidth.toLong)).toInt))).asUInt)
@@ -38,14 +37,13 @@ class TopControlRandomInputTester(val c: TopControl) extends DspTester(c) {
     step(1)
     numberOfSteps += 1
   }
-  */
 }
 
 
-class TopControlSpec extends FreeSpec with Matchers {
+class TopSimulatorSpec extends FreeSpec with Matchers {
 
   "RX Control test with random input bits" in{
-    val gen = () => new TopControl(frameWidth = 32,
+    val gen = () => new TopSimulator(frameWidth = 32,
                               frameBitsWidth = 4,
                               frameIndexWidth = 8,
                               dataWidth = 16,
@@ -57,11 +55,10 @@ class TopControlSpec extends FreeSpec with Matchers {
     dsptools.Driver.execute(
       gen, Array(
         "--backend-name", "verilator",
-        "--target-dir", s"test_run_dir/TopControl_test_Random_Input"
+        "--target-dir", s"test_run_dir/TopSimulator_test_Random_Input"
       )
-    ) 
-    { c => 
-      new TopControlRandomInputTester(c)
+    ) { c => 
+      new TopSimulatorRandomInputTester(c)
     }
   }
 
