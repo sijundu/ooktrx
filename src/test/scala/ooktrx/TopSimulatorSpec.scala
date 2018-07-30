@@ -42,7 +42,7 @@ class TopSimulatorRandomInputTester(val c: TopSimulator) extends DspTester(c) {
 
 class TopSimulatorSpec extends FreeSpec with Matchers {
 
-  "RX Control test with random input bits" in{
+  "Top Simulator test with random input bits" in{
     val gen = () => new TopSimulator(frameWidth = 32,
                               frameBitsWidth = 4,
                               frameIndexWidth = 8,
