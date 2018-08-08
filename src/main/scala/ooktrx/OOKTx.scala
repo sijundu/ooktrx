@@ -16,56 +16,33 @@ import chisel3.util._
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
 //  Note:   Width of specific sections may vary
 
+class OOKTxIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
+  val in = Flipped(Decoupled(gen))
+  val out = Output(Bool())
+  val frameBits = Input(UInt(p.frameBitsWidth.W))
+  val frameIndex = Input(UInt(p.frameIndexWidth.W))
+  val divisor = Input(UInt(p.divisorWidth.W))
+}
 
-class OOKTx (val frameWidth: Int,
-             val frameBitsWidth: Int,
-             val frameIndexWidth: Int,
-             val dataWidth: Int,
-             val divisorWidth: Int,
-             val stackSize: Int
-            ) extends Module{
+class OOKTx[T <: Data](gen: T, p: OOKTRXparams) extends Module{
 
-  require(frameWidth > 19, s"Frame Width must be at least 20, got $frameWidth")
-  require(frameBitsWidth > 3, s"Frame Bits Width must be at least 4, got $frameBitsWidth")
-  require(frameIndexWidth > 3, s"Frame Index Width must be at least 4, got $frameIndexWidth")
-  require(dataWidth > 7, s"Data Width must be at least 8, got $dataWidth")
-  require(divisorWidth > 3, s"Divisor Width must be at least 4, got $divisorWidth")
+  val io = IO(new OOKTxIO(gen, p))
 
-  require(frameWidth == (frameBitsWidth + frameIndexWidth + dataWidth + divisorWidth -1), s"The total frame width must be legal")
-
-  val io = IO(new Bundle{
-    val dataIn = Input(UInt(dataWidth.W))
-    val dataInValid = Input(Bool())
-    val divisor = Input(UInt(divisorWidth.W))
-    val frameBits = Input(UInt(frameBitsWidth.W))
-    val frameIndex = Input(UInt(frameIndexWidth.W))
-    //val sendEn = Input(Bool())
-    val requestData = Output(Bool())
-    val out = Output(Bool())
-  })
-
-  val crcEncode = Module(new CRCEncode(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth))
-  val frameStackTx = Module(new FrameStack(frameWidth,stackSize))
-  val frameSend = Module(new FrameSend(frameWidth))
+  val crcEncode = Module(new CRCEncode(gen, p))
+  val frameStackTx = Module(new FrameStack(gen, p, p.txStackSize))
+  val frameSend = Module(new FrameSend(gen, p))
 
   // IOs of OOK TX
   io.out := frameSend.io.out
-  io.requestData := crcEncode.io.requestData
-  //frameSend.io.sendEn := io.sendEn
-  crcEncode.io.dataIn := io.dataIn
-  crcEncode.io.validIn := io.dataInValid
+  crcEncode.io.in <> io.in
   crcEncode.io.divisor := io.divisor
   crcEncode.io.frameBits := io.frameBits
   crcEncode.io.frameIndex := io.frameIndex
 
   // Interfaces between CRCEncode and Frame Stack
-  frameStackTx.io.in := crcEncode.io.frameOut
-  frameStackTx.io.frameValidIn := crcEncode.io.validOut
-  crcEncode.io.requestIn := frameStackTx.io.requestOut
+  crcEncode.io.out <> frameStackTx.io.in
 
   // Interfaces between Frame Stack and FrameSend
-  frameStackTx.io.requestIn := frameSend.io.requestFrame
-  frameSend.io.frameIn := frameStackTx.io.out
-  frameSend.io.frameInValid := frameStackTx.io.frameValidOut
+  frameStackTx.io.out <> frameSend.io.in
 
 }

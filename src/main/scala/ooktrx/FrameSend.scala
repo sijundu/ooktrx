@@ -16,29 +16,24 @@ import chisel3.util._
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
 //  Note:   Width of specific sections may vary
 
+class FrameSendIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
+  val in = Flipped(Decoupled(UInt(p.frameWidth.W)))
+  val out = Output(Bool())
+}
 
-class FrameSend (val frameWidth: Int
-                ) extends Module {
+class FrameSend[T <: Data](gen: T, p: OOKTRXparams) extends Module{
 
-  require(frameWidth > 15, s"Frame Width must be > 15, got $frameWidth")
-
-  val io = IO(new Bundle{
-    val frameIn = Input(UInt(frameWidth.W))
-    val frameInValid = Input(Bool())
-    //val sendEn = Input(Bool())
-    val out = Output(Bool())
-    val requestFrame = Output(Bool())
-  })
+  val io = IO(new FrameSendIO(gen, p))
 
   val out = RegInit(Bool(), false.B)
   io.out := out
 
   val requestFrame = RegInit(Bool(), false.B)
-  io.requestFrame := requestFrame
+  io.in.ready := requestFrame
 
-  val frameBuffer = RegInit(0.U(frameWidth.W))
+  val frameBuffer = RegInit(0.U(p.frameWidth.W))
 
-  val counter = RegInit(0.U(log2Ceil(frameWidth+1).toInt.W))
+  val counter = RegInit(0.U(log2Ceil(p.frameWidth+1).toInt.W))
 
   val sIdle :: sSend :: Nil = Enum(2)
   val state = Reg(init = sIdle)
@@ -48,18 +43,18 @@ class FrameSend (val frameWidth: Int
       requestFrame := true.B
       out := false.B
       counter := 0.U
-      when(requestFrame && io.frameInValid){
-        frameBuffer := io.frameIn
+      when(requestFrame && io.in.valid){
+        frameBuffer := io.in.bits
         requestFrame := false.B
         counter := 0.U
         state := sSend
       }
     }
     is(sSend){
-      when(counter < frameWidth.asUInt){
-        out := frameBuffer(frameWidth.asUInt - counter - 1.U)
+      when(counter < p.frameWidth.asUInt){
+        out := frameBuffer(p.frameWidth.asUInt - counter - 1.U)
         counter := counter + 1.U
-        when(counter === (frameWidth-1).asUInt){
+        when(counter === (p.frameWidth-1).asUInt){
           requestFrame := true.B
           state := sIdle
         }

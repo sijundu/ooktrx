@@ -16,45 +16,36 @@ import chisel3.util._
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
 //  Note:   Width of specific sections may vary
 
+class CRCCheckIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
+  val in = Flipped(Decoupled(UInt(p.frameWidth.W)))
+  val out = Valid(gen)
+  val divisor = Input(UInt(p.divisorWidth.W))
+  val dataOutIndex = Output(UInt(p.frameIndexWidth.W))
+  val crcPass = Output(Bool())
+}
 
-class CRCCheck (val frameWidth: Int,
-                val frameIndexWidth: Int,
-                val dataWidth: Int,
-                val divisorWidth: Int 
-                ) extends Module {
+class CRCCheck[T <: Data](gen: T, p: OOKTRXparams) extends Module{
 
-  require(divisorWidth > 2, s"Divider bit width must be > 2, got $divisorWidth")
+  val io = IO(new CRCCheckIO(gen, p))
 
-  val io = IO(new Bundle{
-    val frameIn = Input(UInt(frameWidth.W)) 
-    val frameValid = Input(Bool())
-    val divisor = Input(UInt(divisorWidth.W))
-    val dataOut = Output(UInt(dataWidth.W)) //data only with frame index, without frame bits or CRC
-    val dataOutReady = Output(Bool())
-    val dataOutIndex = Output(UInt(frameIndexWidth.W))
-    val crcPass = Output(Bool())
-    val requestFrame = Output(Bool())
-  })
-
-
-  val dataOutReady = RegInit(Bool(), false.B)
-  io.dataOutReady := dataOutReady
+  val dataOutValid = RegInit(Bool(), false.B)
+  io.out.valid := dataOutValid
 
   val crcPass = RegInit(Bool(), false.B)
   io.crcPass := crcPass
 
   val requestFrame = RegInit(Bool(), false.B)
-  io.requestFrame := requestFrame
+  io.in.ready := requestFrame
 
-  val frameIndex = RegInit(0.U(frameIndexWidth.W))
+  val frameIndex = RegInit(0.U(p.frameIndexWidth.W))
 
-  val frameIn = RegInit(0.U(frameWidth.W))
-  io.dataOut := frameIn(dataWidth+divisorWidth-2, divisorWidth-1)
-  io.dataOutIndex := frameIn(frameIndexWidth+dataWidth+divisorWidth-2, dataWidth+divisorWidth-1)
+  val frameIn = RegInit(0.U(p.frameWidth.W))
+  io.out.bits := frameIn(p.dataWidth+p.divisorWidth-2, p.divisorWidth-1)
+  io.dataOutIndex := frameIn(p.frameIndexWidth+p.dataWidth+p.divisorWidth-2, p.dataWidth+p.divisorWidth-1)
 
-  val dataCal = RegInit(0.U((dataWidth+divisorWidth-1).W))
+  val dataCal = RegInit(0.U((p.dataWidth+p.divisorWidth-1).W))
 
-  val counter = RegInit(0.U((log2Ceil(dataWidth+divisorWidth-1).toInt).W))
+  val counter = RegInit(0.U((log2Ceil(p.dataWidth+p.divisorWidth-1).toInt).W))
 
   // State Machine definition
   val sRequest :: sWorking :: sDone :: Nil = Enum(3)
@@ -64,11 +55,11 @@ class CRCCheck (val frameWidth: Int,
   switch(state){
     // requesting frame
     is(sRequest){
-      when(io.frameValid){
+      when(io.in.valid){
         requestFrame := false.B
-        frameIn := io.frameIn
-        dataCal := io.frameIn(dataWidth+divisorWidth-2, 0)
-        frameIndex := io.frameIn(dataWidth+divisorWidth+frameIndexWidth-2, dataWidth+divisorWidth-1)
+        frameIn := io.in.bits
+        dataCal := io.in.bits(p.dataWidth+p.divisorWidth-2, 0)
+        frameIndex := io.in.bits(p.dataWidth+p.divisorWidth+p.frameIndexWidth-2, p.dataWidth+p.divisorWidth-1)
         counter := 0.U
         state := sWorking
       }.otherwise{
@@ -78,37 +69,37 @@ class CRCCheck (val frameWidth: Int,
     }
     is(sWorking){
       when((dataCal === 0.U | dataCal === io.divisor)){
-        dataOutReady := true.B
+        dataOutValid := true.B
         crcPass := true.B
         requestFrame := true.B
         state := sDone
       }.elsewhen(dataCal < io.divisor){
-        dataOutReady := true.B
+        dataOutValid := true.B
         crcPass := false.B
         requestFrame := true.B
         state := sDone
       }.otherwise{
         counter := counter + 1.U
-        when(dataCal((dataWidth+divisorWidth-1).asUInt-1.U-counter) === 1.U){
+        when(dataCal((p.dataWidth+p.divisorWidth-1).asUInt-1.U-counter) === 1.U){
           when(counter === 0.U){
-            dataCal := Cat((dataCal(dataWidth+divisorWidth-2, dataWidth-1)) ^ io.divisor, dataCal(dataWidth-2, 0))
+            dataCal := Cat((dataCal(p.dataWidth+p.divisorWidth-2, p.dataWidth-1)) ^ io.divisor, dataCal(p.dataWidth-2, 0))
           }.otherwise{
             val headData = "b0".asUInt(1.W) << (counter-1.U)
-            val xored = ((dataCal<<counter)(dataWidth+divisorWidth-2,0)>>(dataWidth-1)) ^ io.divisor
-            val tailData = ((dataCal << (divisorWidth.U+counter))(dataWidth+divisorWidth-2, 0))>>(divisorWidth.U+counter)
-            dataCal := Cat(headData, xored)<<((dataWidth+divisorWidth-1).asUInt-divisorWidth.asUInt-counter) | tailData
+            val xored = ((dataCal<<counter)(p.dataWidth+p.divisorWidth-2,0)>>(p.dataWidth-1)) ^ io.divisor
+            val tailData = ((dataCal << (p.divisorWidth.U+counter))(p.dataWidth+p.divisorWidth-2, 0))>>(p.divisorWidth.U+counter)
+            dataCal := Cat(headData, xored)<<((p.dataWidth+p.divisorWidth-1).asUInt-p.divisorWidth.asUInt-counter) | tailData
           }
         }
       }
     // CRC is done and the data either pass or fail the checking
     }
     is(sDone){
-      dataOutReady := false.B
-      when(io.frameValid){
+      dataOutValid := false.B
+      when(io.in.valid){
         state := sWorking
-        frameIn := io.frameIn
-        dataCal := io.frameIn(dataWidth+divisorWidth-2, 0)
-        frameIndex := io.frameIn(dataWidth+divisorWidth+frameIndexWidth-2, dataWidth+divisorWidth-1)
+        frameIn := io.in.bits
+        dataCal := io.in.bits(p.dataWidth+p.divisorWidth-2, 0)
+        frameIndex := io.in.bits(p.dataWidth+p.divisorWidth+p.frameIndexWidth-2, p.dataWidth+p.divisorWidth-1)
         counter := 0.U
       }.otherwise{
         state := sRequest

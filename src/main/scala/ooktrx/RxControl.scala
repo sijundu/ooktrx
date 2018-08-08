@@ -16,43 +16,23 @@ import chisel3.util._
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
 //  Note:   Width of specific sections may vary
 
+class RxControlIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
+  val in = Input(Bool())
+  val out = Valid(UInt((1 + p.frameIndexWidth + p.dataWidth).W))
+  val rxEn = Input(Bool())
+  val frameBits = Input(UInt(p.frameBitsWidth.W))
+  val divisor = Input(UInt(p.divisorWidth.W))
+}
 
-class RxControl (
-             val frameWidth: Int,
-             val frameBitsWidth: Int,
-             val frameIndexWidth: Int,
-             val dataWidth: Int,
-             val divisorWidth: Int,
-             val rxStackSize: Int,
-             val rxMemSize: Int
-            ) extends Module{
+class RxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{ 
 
-  require(frameWidth > 19, s"Frame Width must be at least 20, got $frameWidth")
-  require(frameBitsWidth > 3, s"Frame Bits Width must be at least 4, got $frameBitsWidth")
-  require(frameIndexWidth > 3, s"Frame Index Width must be at least 4, got $frameIndexWidth")
-  require(dataWidth > 7, s"Data Width must be at least 8, got $dataWidth")
-  require(divisorWidth > 3, s"Divisor Width must be at least 4, got $divisorWidth")
-
-  require(frameWidth == (frameBitsWidth + frameIndexWidth + dataWidth + divisorWidth -1), s"The total frame width must be legal")
-
-  val io = IO(new Bundle{
-    val rxEn = Input(Bool())
-    val in = Input(Bool())
-    val frameBits = Input(UInt(frameBitsWidth.W))
-    val divisor = Input(UInt(divisorWidth.W))
-    //val frameCount = Input(UInt((log2Ceil(rxMemSize).toInt).W))
-
-    //val readDataRequest = Input(Bool())
-
-    val dataOut = Output(UInt((1 + frameIndexWidth + dataWidth).W))
-    val dataOutReady = Output(Bool())
-  })
+  val io = IO(new RxControlIO(gen, p))
 
   // Output initilization
-  val dataOut = RegInit(0.U((1 + frameIndexWidth + dataWidth).W))
-  io.dataOut := dataOut
+  val dataOut = RegInit(0.U((1 + p.frameIndexWidth + p.dataWidth).W))
+  io.out.bits := dataOut
   val dataOutReady = RegInit(Bool(), false.B)
-  io.dataOutReady := dataOutReady
+  io.out.valid := dataOutReady
   
 
   ///////////////////////////////////////////////////////////////////////////////////
@@ -64,26 +44,29 @@ class RxControl (
   //   A: crcPass flag (1.W)
   //   B: frame index, used to request resending data if crcPass flag is de-asserted. (frameIndexWidth.W)
   //   C: information data. (dataWidth.W)
-  val rxMem = Mem(rxMemSize, UInt((1 + frameIndexWidth + dataWidth).W))
+  val rxMem = Mem(p.rxMemSize, UInt((1 + p.frameIndexWidth + p.dataWidth).W))
   ///////////////////////////////////////////////////////////////////////////////////
 
 
-  val writeAddr = RegInit(0.U((log2Ceil(rxMemSize).toInt).W))
-  val readAddr = RegInit(0.U((log2Ceil(rxMemSize).toInt).W))
+  val writeAddr = RegInit(0.U((log2Ceil(p.rxMemSize).toInt).W))
+  val readAddr = RegInit(0.U((log2Ceil(p.rxMemSize).toInt).W))
   
   // Implementation of OOKRx block
-  val ookrx = Module(new OOKRx(frameWidth, frameBitsWidth, frameIndexWidth, dataWidth, divisorWidth, rxStackSize))
+  val ookrx = Module(new OOKRx(gen, p))
   ookrx.io.in := Mux(io.rxEn, io.in, false.B)
   ookrx.io.frameBits := io.frameBits
   ookrx.io.divisor := io.divisor
 
   // Internal registers
-  val frameCount = RegInit(0.U((log2Ceil(rxMemSize).toInt).W))
-  val memUsage = RegInit(0.U((log2Ceil(rxMemSize+1).toInt).W))
+  val frameCount = RegInit(0.U((log2Ceil(p.rxMemSize).toInt).W))
+  val memUsage = RegInit(0.U((log2Ceil(p.rxMemSize+1).toInt).W))
 
   // Stat Machine definition
   val sIdle :: sRx :: Nil = Enum(2)
   val state = Reg(init = sIdle)
+
+  //val dataToSave = Wire(UInt((1 + p.frameIndexWidth + p.dataWidth).W))
+  //dataToSave := Cat(ookrx.io.crcPass, ookrx.io.dataOutIndex, ookrx.io.out.bits)
 
   //////////////////// State machine implementation //////////////////
   switch(state){
@@ -93,24 +76,25 @@ class RxControl (
       }
     }
     is(sRx){
-      when(memUsage < rxMemSize.asUInt){
-        when(ookrx.io.dataOutReady){
+      when(memUsage < p.rxMemSize.asUInt){
+        when(ookrx.io.out.valid){
           dataOutReady := false.B
-          rxMem.write(writeAddr, Cat(ookrx.io.crcPass, ookrx.io.dataOutIndex, ookrx.io.dataOut))
-          writeAddr := Mux(writeAddr === (rxMemSize-1).asUInt, 0.U, writeAddr + 1.U)
+          rxMem.write(writeAddr, Cat(ookrx.io.crcPass, ookrx.io.dataOutIndex, ookrx.io.out.bits))
+          //rxMem.write(writeAddr, dataToSave)
+          writeAddr := Mux(writeAddr === (p.rxMemSize-1).asUInt, 0.U, writeAddr + 1.U)
           memUsage := memUsage + 1.U
         }.elsewhen(memUsage > 0.U){
           dataOut := rxMem.read(readAddr)
           dataOutReady := true.B
-          readAddr := Mux(readAddr === (rxMemSize-1).asUInt, 0.U, readAddr + 1.U)
+          readAddr := Mux(readAddr === (p.rxMemSize-1).asUInt, 0.U, readAddr + 1.U)
           memUsage := memUsage - 1.U
         }.otherwise{
           dataOutReady := false.B
         }
-      }.elsewhen(memUsage === rxMemSize.asUInt){
+      }.elsewhen(memUsage === p.rxMemSize.asUInt){
         dataOut := rxMem.read(readAddr)
         dataOutReady := true.B
-        readAddr := Mux(readAddr === (rxMemSize-1).asUInt, 0.U, readAddr + 1.U)
+        readAddr := Mux(readAddr === (p.rxMemSize-1).asUInt, 0.U, readAddr + 1.U)
         memUsage := memUsage - 1.U
       }.otherwise{
         dataOutReady := false.B
