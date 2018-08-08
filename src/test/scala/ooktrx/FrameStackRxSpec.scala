@@ -8,15 +8,16 @@ import scala.util.Random
 import dsptools.numbers._
 import chisel3.experimental._
 
-class FrameStackRxTester(val c: FrameStack) extends DspTester(c) {
+class FrameStackRxTester(val c: FrameStack[UInt]) extends DspTester(c) {
   
+  val params = OokParams
   var numberOfSteps = 0
   var frameValid = false.B
   var request = false.B
   
   while(numberOfSteps < 2000) {
     if(numberOfSteps % 10 == 3) {
-      poke(c.io.in, Random.nextInt(math.pow(2, c.frameWidth).toInt).asUInt)
+      poke(c.io.in.bits, Random.nextInt(math.pow(2, params.frameWidth).toInt).asUInt)
       frameValid = true.B
     } else {
       frameValid = false.B
@@ -26,18 +27,21 @@ class FrameStackRxTester(val c: FrameStack) extends DspTester(c) {
     }else{
       request = false.B
     }
-    poke(c.io.frameValidIn, frameValid)
-    poke(c.io.requestIn, request)
+    poke(c.io.in.valid, frameValid)
+    poke(c.io.out.ready, request)
     step(1)
     numberOfSteps += 1
   }
 }
 
 class FrameStackRxSpec extends FreeSpec with Matchers {
-  val frameWidthNb = 20
-  val StackSizeNb = 16
+  val params = OokParams
   "Frame Stack for Rx first test" in {
-    val gen = () => new FrameStack(frameWidth = frameWidthNb, StackSize = StackSizeNb)
+    val gen = () => new FrameStack(
+      params.dataType,
+      params.ooktrxParams, 
+      10
+    )
     dsptools.Driver.execute(
       gen, Array(
         "--backend-name", "verilator",

@@ -8,9 +8,10 @@ import scala.util.Random
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-class CRCCheckTester(val c: CRCCheck) extends DspTester(c) {
+class CRCCheckTester(val c: CRCCheck[UInt]) extends DspTester(c) {
   
-  val divisor = "b1101".asUInt(c.divisorWidth.W)
+  val params = OokParams
+  val divisor = "b11101".asUInt(params.divisorWidth.W)
   var numberOfSteps = 0
   var validIn = false.B
 
@@ -18,24 +19,24 @@ class CRCCheckTester(val c: CRCCheck) extends DspTester(c) {
 
   while(numberOfSteps < 4000) {
     if(numberOfSteps % 20 == 10) {
-      poke(c.io.frameIn, Random.nextInt(math.pow(2, c.frameWidth).toInt).asUInt)
+      poke(c.io.in.bits, Random.nextInt(math.pow(2, params.frameWidth).toInt).asUInt)
       validIn = true.B
     } else{
       validIn = false.B
     }
-    poke(c.io.frameValid, validIn)
+    poke(c.io.in.valid, validIn)
     step(1)
     numberOfSteps += 1
   }
 }
 
 class CRCCheckSpec extends FreeSpec with Matchers {
+  val params = OokParams
   "CRC Checking first test" in {
-    val frameWidthNb = 20
-    val frameIndexWidthNb = 4
-    val dataWidthNb = 9  
-    val divisorWidthNb = 4
-    val gen = () => new CRCCheck(frameWidthNb, frameIndexWidthNb, dataWidthNb, divisorWidthNb)
+    val gen = () => new CRCCheck(
+      params.dataType,
+      params.ooktrxParams
+    )
     dsptools.Driver.execute(
       gen, Array(
         "--backend-name", "verilator",

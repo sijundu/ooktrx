@@ -9,10 +9,11 @@ import chisel3.util._
 import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 import scala.util.Random
 
-class TopSimulatorRandomInputTester(val c: TopSimulator) extends DspTester(c) {
+class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester(c) {
 
-  val frameBits = "b1111".asUInt(c.frameBitsWidth.W)
-  val divisor = "b10101".asUInt(c.divisorWidth.W)
+  val params = OokParams
+  val frameBits = "b1111".asUInt(params.frameBitsWidth.W)
+  val divisor = "b101010101".asUInt(params.divisorWidth.W)
   var numberOfSteps = 0
   var startStepNb = 100
   var frameNb = 100
@@ -22,17 +23,17 @@ class TopSimulatorRandomInputTester(val c: TopSimulator) extends DspTester(c) {
 
   while(numberOfSteps < 5000){
     if((numberOfSteps > startStepNb) && (numberOfSteps <= (startStepNb+frameNb))){
-      poke(c.io.dataIn, (((numberOfSteps-startStepNb) << c.dataWidth)+(Random.nextInt(math.pow(2, (c.dataWidth.toLong)).toInt))).asUInt)
+      poke(c.io.in.bits, (((numberOfSteps-startStepNb) << params.dataWidth)+(Random.nextInt(math.pow(2, (params.dataWidth.toLong)).toInt))).asUInt)
       //poke(c.io.dataIn, Random.nextInt(math.pow(2, (c.frameIndexWidth+c.dataWidth)).toLong).asUInt)
-      poke(c.io.dataInValid, true.B)
+      poke(c.io.in.valid, true.B)
     //}else if((numberOfSteps >= 1100) && (numberOfSteps < 1118)){
     //  poke(c.io.dataIn, Random.nextInt(math.pow(2, (c.frameIndexWidth+c.dataWidth)).toInt).asUInt)
     //  poke(c.io.dataInValid, true.B)
     //  poke(c.io.txStart, true.B)
     //  poke(c.io.frameCount, 18.U)
     }else{
-      poke(c.io.dataIn, 0.U((c.frameIndexWidth + c.dataWidth).W))
-      poke(c.io.dataInValid, false.B)
+      poke(c.io.in.bits, 0.U((params.frameIndexWidth + params.dataWidth).W))
+      poke(c.io.in.valid, false.B)
     }
     step(1)
     numberOfSteps += 1
@@ -42,16 +43,12 @@ class TopSimulatorRandomInputTester(val c: TopSimulator) extends DspTester(c) {
 
 class TopSimulatorSpec extends FreeSpec with Matchers {
 
+  val params = OokParams
   "Top Simulator test with random input bits" in{
-    val gen = () => new TopSimulator(frameWidth = 32,
-                              frameBitsWidth = 4,
-                              frameIndexWidth = 8,
-                              dataWidth = 16,
-                              divisorWidth = 5,
-                              txStackSize = 64,
-                              txMemSize = 128, 
-                              rxStackSize = 8,
-                              rxMemSize = 128 )
+    val gen = () => new TopSimulator(
+      params.dataType,
+      params.ooktrxParams
+    )
     dsptools.Driver.execute(
       gen, Array(
         "--backend-name", "verilator",

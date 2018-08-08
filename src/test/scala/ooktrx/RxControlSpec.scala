@@ -9,11 +9,12 @@ import chisel3.util._
 import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 import scala.util.Random
 
-class RxControlRandomInputTester(val c: RxControl) extends DspTester(c) {
+class RxControlRandomInputTester(val c: RxControl[UInt]) extends DspTester(c) {
 
-  val frameBits = "b1111".asUInt(c.frameBitsWidth.W)
-  val divisor = "b1101".asUInt(c.divisorWidth.W)
-  val frameCount = 10.U((log2Ceil(c.rxMemSize).toInt).W)
+  val params = OokParams
+  val frameBits = "b1111".asUInt(params.frameBitsWidth.W)
+  val divisor = "b101010101".asUInt(params.divisorWidth.W)
+  val frameCount = 10.U((log2Ceil(params.ooktrxParams.rxMemSize).toInt).W)
   var numberOfSteps = 0
   var randomFrameBits = Random.nextInt(2)
 
@@ -67,14 +68,12 @@ class RxControlFullFrameTester(val c: RxControl) extends DspTester(c) {
 
 class RxControlSpec extends FreeSpec with Matchers {
 
+  val params = OokParams
   "RX Control test with random input bits" in{
-    val gen = () => new RxControl(frameWidth = 20,
-                              frameBitsWidth = 4,
-                              frameIndexWidth = 4,
-                              dataWidth = 9,
-                              divisorWidth = 4,
-                              rxStackSize =16,
-                              rxMemSize = 16 )
+    val gen = () => new RxControl(
+      params.dataType,
+      params.ooktrxParams
+    )
     dsptools.Driver.execute(
       gen, Array(
         "--backend-name", "verilator",

@@ -13,10 +13,11 @@ import scala.util.Random
 // This tester is only used to generated verilog file for FPGA implementation
 // To test the TopControl.scala, please use the tester `TopSimulatorSpec.scala'
 ///////////////////////////////////////////////////////////////////////////////
-class TopControlRandomInputTester(val c: TopControl) extends DspTester(c) {
+class TopControlRandomInputTester(val c: TopControl[UInt]) extends DspTester(c) {
 
-  val frameBits = "b1111".asUInt(c.frameBitsWidth.W)
-  val divisor = "b10101".asUInt(c.divisorWidth.W)
+  val params = OokParams
+  val frameBits = "b1111".asUInt(params.frameBitsWidth.W)
+  val divisor = "b101010101".asUInt(params.divisorWidth.W)
   var numberOfSteps = 0
   var startStepNb = 100
   var frameNb = 100
@@ -48,16 +49,12 @@ class TopControlRandomInputTester(val c: TopControl) extends DspTester(c) {
 
 class TopControlSpec extends FreeSpec with Matchers {
 
+  val params = OokParams
   "Top Control test with random input bits" in{
-    val gen = () => new TopControl(frameWidth = 32,
-                              frameBitsWidth = 4,
-                              frameIndexWidth = 8,
-                              dataWidth = 16,
-                              divisorWidth = 5,
-                              txStackSize = 64,
-                              txMemSize = 128, 
-                              rxStackSize = 8,
-                              rxMemSize = 128 )
+    val gen = () => new TopControl(
+      params.dataType,
+      params.ooktrxParams
+    )
     dsptools.Driver.execute(
       gen, Array(
         "--backend-name", "verilator",

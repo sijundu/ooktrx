@@ -8,9 +8,10 @@ import chisel3._
 import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 import scala.util.Random
 
-class FrameSyncTester(val c: FrameSync) extends DspTester(c) {
+class FrameSyncTester(val c: FrameSync[UInt]) extends DspTester(c) {
 
-  val frameBits = "b1111".asUInt(c.frameBitsWidth.W)
+  val params = OokParams
+  val frameBits = "b1111".asUInt(params.ooktrxParams.frameWidth.W)
   var numberOfSteps = 0
   var randomFrameBits = Random.nextInt(2)
 
@@ -19,28 +20,28 @@ class FrameSyncTester(val c: FrameSync) extends DspTester(c) {
 
   while(numberOfSteps < 1000){
     randomFrameBits = Random.nextInt(2)
-    poke(c.io.in, randomFrameBits != 0)
-    if(numberOfSteps % 100 < 100){
-      poke(c.io.requestFrame, true.B)
+    if(numberOfSteps % params.ooktrxParams.frameWidth < params.frameBitsWidth){
+      poke(c.io.in, true.B)
     }else{
-      poke(c.io.requestFrame, false.B)
+      poke(c.io.in, randomFrameBits != 0)
     }
+    poke(c.io.out.ready, true.B)
     step(1)
     numberOfSteps += 1
   }
 }
 
 class FrameSyncSpec extends FreeSpec with Matchers {
+  val params = OokParams
   "First test: with 4-bit frame bits" in{
-    val frameBitsWidthNb = 4
-    val frameWidthNb = 20 
-    //val frameIndexWidthNb = 4
-    //val gen = () => new FrameSync(frameBitsWidthNb, frameWidthNb, frameIndexWidthNb)
-    val gen = () => new FrameSync(frameBitsWidthNb, frameWidthNb)
+    val gen = () => new FrameSync(
+                              params.dataType, 
+                              params.ooktrxParams 
+                            )
     dsptools.Driver.execute(
       gen, Array(
         "--backend-name", "verilator",
-        "--target-dir", s"test_run_dir/frame_sync_first_test"
+        "--target-dir", s"test_run_dir/frame_sync_test"
       )
     ) { c => 
       new FrameSyncTester(c)

@@ -9,10 +9,11 @@ import chisel3.util._
 import chisel3.iotesters.{ChiselFlatSpec, Driver, PeekPokeTester}
 import scala.util.Random
 
-class TxControlRandomInputTester(val c: TxControl) extends DspTester(c) {
+class TxControlRandomInputTester(val c: TxControl[UInt]) extends DspTester(c) {
 
-  val frameBits = "b1111".asUInt(c.frameBitsWidth.W)
-  val divisor = "b1101".asUInt(c.divisorWidth.W)
+  val params = OokParams
+  val frameBits = "b1111".asUInt(params.frameBitsWidth.W)
+  val divisor = "b101010101".asUInt(params.divisorWidth.W)
   var numberOfSteps = 0
   var randomFrameBits = Random.nextInt(2)
   
@@ -23,14 +24,14 @@ class TxControlRandomInputTester(val c: TxControl) extends DspTester(c) {
 
   while(numberOfSteps < 3000){
     if((numberOfSteps >= 100) && (numberOfSteps < 110)){
-      poke(c.io.dataIn, Random.nextInt(math.pow(2, (c.frameIndexWidth+c.dataWidth)).toInt).asUInt)
-      poke(c.io.dataInValid, true.B)
+      poke(c.io.in.bits, Random.nextInt(math.pow(2, (params.frameIndexWidth+params.dataWidth)).toInt).asUInt)
+      poke(c.io.in.valid, true.B)
     }else if((numberOfSteps >= 1100) && (numberOfSteps < 1118)){
-      poke(c.io.dataIn, Random.nextInt(math.pow(2, (c.frameIndexWidth+c.dataWidth)).toInt).asUInt)
-      poke(c.io.dataInValid, true.B)
+      poke(c.io.in.bits, Random.nextInt(math.pow(2, (params.frameIndexWidth+params.dataWidth)).toInt).asUInt)
+      poke(c.io.in.valid, true.B)
     }else{
-      poke(c.io.dataIn, 0.U(c.dataWidth.W))
-      poke(c.io.dataInValid, false.B)
+      poke(c.io.in.bits, 0.U(params.dataWidth.W))
+      poke(c.io.in.valid, false.B)
     }
     step(1)
     numberOfSteps += 1
@@ -45,14 +46,12 @@ class TxControlFullFrameTester(val c: TxControl) extends DspTester(c) {
 
 class TxControlSpec extends FreeSpec with Matchers {
 
+  val params = OokParams
   "RX Control test with random input bits" in{
-    val gen = () => new TxControl(frameWidth = 20,
-                              frameBitsWidth = 4,
-                              frameIndexWidth = 4,
-                              dataWidth = 9,
-                              divisorWidth = 4,
-                              txStackSize =16,
-                              txMemSize = 16 )
+    val gen = () => new TxControl(
+      params.dataType,
+      params.ooktrxParams
+    )
     dsptools.Driver.execute(
       gen, Array(
         "--backend-name", "verilator",
