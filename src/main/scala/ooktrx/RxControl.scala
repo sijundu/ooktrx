@@ -44,7 +44,7 @@ class RxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   //   A: crcPass flag (1.W)
   //   B: frame index, used to request resending data if crcPass flag is de-asserted. (frameIndexWidth.W)
   //   C: information data. (dataWidth.W)
-  val rxMem = Mem(p.rxMemSize, UInt((1 + p.frameIndexWidth + p.dataWidth).W))
+  val rxMem = SyncReadMem(p.rxMemSize, UInt((1 + p.frameIndexWidth + p.dataWidth).W))
   ///////////////////////////////////////////////////////////////////////////////////
 
 
@@ -57,12 +57,14 @@ class RxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   ookrx.io.frameBits := io.frameBits
   ookrx.io.divisor := io.divisor
 
+  dataOut := rxMem.read(readAddr)
+
   // Internal registers
   val frameCount = RegInit(0.U((log2Ceil(p.rxMemSize).toInt).W))
   val memUsage = RegInit(0.U((log2Ceil(p.rxMemSize+1).toInt).W))
 
   // Stat Machine definition
-  val sIdle :: sRx :: Nil = Enum(2)
+  val sIdle :: sRx :: sRead :: Nil = Enum(3)
   val state = Reg(init = sIdle)
 
   //val dataToSave = Wire(UInt((1 + p.frameIndexWidth + p.dataWidth).W))
@@ -84,16 +86,18 @@ class RxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
           writeAddr := Mux(writeAddr === (p.rxMemSize-1).asUInt, 0.U, writeAddr + 1.U)
           memUsage := memUsage + 1.U
         }.elsewhen(memUsage > 0.U){
-          dataOut := rxMem.read(readAddr)
-          dataOutReady := true.B
+          //dataOut := rxMem.read(readAddr)
+          state := sRead
+          //dataOutReady := true.B
           readAddr := Mux(readAddr === (p.rxMemSize-1).asUInt, 0.U, readAddr + 1.U)
           memUsage := memUsage - 1.U
         }.otherwise{
           dataOutReady := false.B
         }
       }.elsewhen(memUsage === p.rxMemSize.asUInt){
-        dataOut := rxMem.read(readAddr)
-        dataOutReady := true.B
+        //dataOut := rxMem.read(readAddr)
+        state := sRead
+        //dataOutReady := true.B
         readAddr := Mux(readAddr === (p.rxMemSize-1).asUInt, 0.U, readAddr + 1.U)
         memUsage := memUsage - 1.U
       }.otherwise{
@@ -103,6 +107,10 @@ class RxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
         state := sIdle
         dataOutReady := false.B
       }
+    }
+    is(sRead){
+      dataOutReady := true.B
+      state := sRx
     }
   }
 }
