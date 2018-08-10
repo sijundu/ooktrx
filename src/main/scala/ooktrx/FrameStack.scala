@@ -25,31 +25,31 @@ class FrameStackIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
 class FrameStack[T <: Data](gen: T, p: OOKTRXparams, stackSize: Int) extends Module {
 
   val io = IO(new FrameStackIO(gen, p))
+  
+  val stack = SyncReadMem(stackSize, UInt(p.frameWidth.W))
 
   val frameOut = RegInit(0.U(p.frameWidth.W))
+  frameOut := stack.read(readAddr, true.B)
   io.out.bits := frameOut
   val frameValidOut = RegInit(Bool(), false.B)
   io.out.valid := frameValidOut
 
-  val readMemIndex = RegInit(0.U(log2Ceil(stackSize).toInt.W))
-  val writeMemIndex = RegInit(0.U(log2Ceil(stackSize).toInt.W))
-
-  val stack = Mem(stackSize, UInt(p.frameWidth.W))
+  val readAddr = RegInit(0.U(log2Ceil(stackSize).toInt.W))
+  val writeAddr = RegInit(0.U(log2Ceil(stackSize).toInt.W))
 
   val stackUsed = RegInit(0.U(log2Ceil(stackSize+1).toInt.W))
 
   io.in.ready := !(stackUsed === stackSize.asUInt)
 
   when(io.in.ready && io.in.valid){
-    stack.write(writeMemIndex, io.in.bits)
+    stack.write(writeAddr, io.in.bits)
     stackUsed := stackUsed + 1.U
     frameValidOut := false.B
-    writeMemIndex := Mux(writeMemIndex === (stackSize-1).asUInt, 0.U, writeMemIndex + 1.U)
+    writeAddr := Mux(writeAddr === (stackSize-1).asUInt, 0.U, writeAddr + 1.U)
   }.elsewhen(io.out.ready && !frameValidOut && stackUsed > 0.U){
-    frameOut := stack.read(readMemIndex)
     stackUsed := stackUsed - 1.U
     frameValidOut := true.B
-    readMemIndex := Mux(readMemIndex === (stackSize-1).asUInt, 0.U, readMemIndex + 1.U)
+    readAddr := Mux(readAddr === (stackSize-1).asUInt, 0.U, readAddr + 1.U)
   }.otherwise{
     frameValidOut := false.B
   }
