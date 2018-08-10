@@ -16,6 +16,7 @@ import chisel3.util._
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
 //  Note:   Width of specific sections may vary
 
+/*
 class TopControlIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val frameBits = Input(UInt(p.frameBitsWidth.W))
   val divisor = Input(UInt(p.divisorWidth.W))
@@ -34,13 +35,10 @@ class TopControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   
   val io = IO(new TopControlIO(gen, p))
 
-  // Implementation of TX and RX blocks
+  // Implementation of TX and RX blocks)
   val txControl = Module(new TxControl(gen, p))
   val rxControl = Module(new RxControl(gen, p))
 
-  // Implementations of TxMemory and RxMemory
-  val txMemory = Module(new DataMemory(gen, p, p.txMemSize)
-  val rxMemory = Module(new DataMemory(gen, p, p.rxMemSize)
 
   // TX interfaces
   txControl.io.frameBits <> io.frameBits
@@ -56,20 +54,7 @@ class TopControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   rxControl.io.in <> io.bitRx
   io.dataRx <> rxControl.io.out
   
-  /*
-  val sIdle :: sRxStart :: sTxStart :: Nil = Enum(3)
-  val state = Reg(init = sIdle)
-
-  switch(state){
-    is(sIdle){
-      when(
-    }
-    is(sRxStart){
-    }
-    is(sTxStart){
-    }
-  }
-  */
-
 }
+*/
+
 

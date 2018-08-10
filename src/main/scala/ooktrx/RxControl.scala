@@ -16,6 +16,7 @@ import chisel3.util._
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
 //  Note:   Width of specific sections may vary
 
+/*
 class RxControlIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val in = Input(Bool())
   val out = Valid(UInt((1 + p.frameIndexWidth + p.dataWidth).W))
@@ -109,3 +110,4 @@ class RxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
     }
   }
 }
+*/
