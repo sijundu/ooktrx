@@ -16,7 +16,7 @@ class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester
   val divisor = "b101010101".asUInt(params.divisorWidth.W)
   var numberOfSteps = 0
   var startStepNb = 100
-  var frameNb = 10
+  var frameNb = 100
 
   poke(c.io.frameBits, frameBits)
   poke(c.io.divisor, divisor)

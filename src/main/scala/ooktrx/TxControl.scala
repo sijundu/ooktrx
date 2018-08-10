@@ -40,7 +40,7 @@ class TxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   //         A                             B
   // A: frame index, used to request resending data if crcPass flag is de-asserted. (frameIndexWidth.W)
   // B: information data. (dataWidth.W)
-  val txMem = SyncReadMem(p.txMemSize, UInt((p.frameIndexWidth + p.dataWidth).W))
+  val txMem = Mem(p.txMemSize, UInt((p.frameIndexWidth + p.dataWidth).W))
   ///////////////////////////////////////////////////////////////////////////////////
 
   val writeAddr = RegInit(0.U((log2Ceil(p.txMemSize).toInt).W))
@@ -55,7 +55,6 @@ class TxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   ooktx.io.in.bits := dataToSend(p.dataWidth-1, 0)
   ooktx.io.frameIndex := dataToSend(p.frameIndexWidth+p.dataWidth-1, p.dataWidth)
   val dataToSendReady = RegInit(Bool(), false.B)
-  dataToSend := txMem.read(readAddr, true.B)
   ooktx.io.in.valid := dataToSendReady
   //val sendEn = RegInit(Bool(),false.B)
   //ooktx.io.sendEn := sendEn
@@ -87,7 +86,7 @@ class TxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
           memUsage := memUsage + 1.U
           dataToSendReady := false.B
         }.elsewhen(memUsage > 0.U && ooktx.io.in.ready && !dataToSendReady){
-          //dataToSend := txMem.read(readAddr, true.B)
+          dataToSend := txMem.read(readAddr)
           dataToSendReady := true.B
           readAddr := Mux(readAddr === (p.txMemSize-1).asUInt, 0.U, readAddr + 1.U)
           memUsage := memUsage - 1.U
@@ -96,7 +95,7 @@ class TxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
         }
       }.elsewhen(memUsage === p.txMemSize.asUInt){
         when(ooktx.io.in.ready && !dataToSendReady){
-          //dataToSend := txMem.read(readAddr, true.B)
+          dataToSend := txMem.read(readAddr)
           dataToSendReady := true.B
           readAddr := Mux(readAddr === (p.txMemSize-1).asUInt, 0.U, readAddr + 1.U)
           memUsage := memUsage - 1.U

@@ -24,17 +24,16 @@ class RxControlIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val divisor = Input(UInt(p.divisorWidth.W))
 }
 
-class RxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{ 
+class RxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
 
   val io = IO(new RxControlIO(gen, p))
 
   // Output initilization
   val dataOut = RegInit(0.U((1 + p.frameIndexWidth + p.dataWidth).W))
-  //dataOut := rxMem.read(readAddr, true.B)
   io.out.bits := dataOut
-  val dataOutValid = RegInit(Bool(), false.B)
-  io.out.valid := dataOutValid
-  
+  val dataOutReady = RegInit(Bool(), false.B)
+  io.out.valid := dataOutReady
+
 
   ///////////////////////////////////////////////////////////////////////////////////
   // Implement data ram to store received data
@@ -45,13 +44,13 @@ class RxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   //   A: crcPass flag (1.W)
   //   B: frame index, used to request resending data if crcPass flag is de-asserted. (frameIndexWidth.W)
   //   C: information data. (dataWidth.W)
-  val rxMem = SyncReadMem(p.rxMemSize, UInt((1 + p.frameIndexWidth + p.dataWidth).W))
+  val rxMem = Mem(p.rxMemSize, UInt((1 + p.frameIndexWidth + p.dataWidth).W))
   ///////////////////////////////////////////////////////////////////////////////////
 
 
   val writeAddr = RegInit(0.U((log2Ceil(p.rxMemSize).toInt).W))
   val readAddr = RegInit(0.U((log2Ceil(p.rxMemSize).toInt).W))
-  
+
   // Implementation of OOKRx block
   val ookrx = Module(new OOKRx(gen, p))
   ookrx.io.in := Mux(io.rxEn, io.in, false.B)
@@ -79,29 +78,30 @@ class RxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
     is(sRx){
       when(memUsage < p.rxMemSize.asUInt){
         when(ookrx.io.out.valid){
-          dataOutValid := false.B
+          dataOutReady := false.B
           rxMem.write(writeAddr, Cat(ookrx.io.crcPass, ookrx.io.dataOutIndex, ookrx.io.out.bits))
+          //rxMem.write(writeAddr, dataToSave)
           writeAddr := Mux(writeAddr === (p.rxMemSize-1).asUInt, 0.U, writeAddr + 1.U)
           memUsage := memUsage + 1.U
         }.elsewhen(memUsage > 0.U){
-          dataOut := rxMem.read(readAddr, true.B)
-          dataOutValid := true.B
+          dataOut := rxMem.read(readAddr)
+          dataOutReady := true.B
           readAddr := Mux(readAddr === (p.rxMemSize-1).asUInt, 0.U, readAddr + 1.U)
           memUsage := memUsage - 1.U
         }.otherwise{
-          dataOutValid := false.B
+          dataOutReady := false.B
         }
       }.elsewhen(memUsage === p.rxMemSize.asUInt){
-        dataOut := rxMem.read(readAddr, true.B)
-        dataOutValid := true.B
+        dataOut := rxMem.read(readAddr)
+        dataOutReady := true.B
         readAddr := Mux(readAddr === (p.rxMemSize-1).asUInt, 0.U, readAddr + 1.U)
         memUsage := memUsage - 1.U
       }.otherwise{
-        dataOutValid := false.B
+        dataOutReady := false.B
       }
       when(memUsage === 0.U && !io.rxEn){
         state := sIdle
-        dataOutValid := false.B
+        dataOutReady := false.B
       }
     }
   }
