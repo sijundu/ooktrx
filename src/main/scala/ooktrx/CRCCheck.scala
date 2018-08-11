@@ -18,7 +18,7 @@ import chisel3.util._
 
 class CRCCheckIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val in = Flipped(Decoupled(UInt(p.frameWidth.W)))
-  val out = Valid(gen)
+  val out = Decoupled(gen)
   val divisor = Input(UInt(p.divisorWidth.W))
   val dataOutIndex = Output(UInt(p.frameIndexWidth.W))
   val crcPass = Output(Bool())
@@ -48,35 +48,33 @@ class CRCCheck[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   val counter = RegInit(0.U((log2Ceil(p.dataWidth+p.divisorWidth-1).toInt).W))
 
   // State Machine definition
-  val sRequest :: sWorking :: sDone :: Nil = Enum(3)
-  val state = Reg(init = sRequest)
+  val sIdle :: sChecking :: sDone :: Nil = Enum(3)
+  val state = Reg(init = sIdle)
 
   //////////////////// State machine implementation //////////////////
   switch(state){
     // requesting frame
-    is(sRequest){
+    is(sIdle){
+      dataOutValid := false.B
+      requestFrame := true.B
       when(io.in.valid){
         requestFrame := false.B
         frameIn := io.in.bits
         dataCal := io.in.bits(p.dataWidth+p.divisorWidth-2, 0)
         frameIndex := io.in.bits(p.dataWidth+p.divisorWidth+p.frameIndexWidth-2, p.dataWidth+p.divisorWidth-1)
         counter := 0.U
-        state := sWorking
+        state := sChecking
       }.otherwise{
         requestFrame := true.B
       }
     // CRC is now working 
     }
-    is(sWorking){
+    is(sChecking){
       when((dataCal === 0.U | dataCal === io.divisor)){
-        dataOutValid := true.B
         crcPass := true.B
-        requestFrame := true.B
         state := sDone
       }.elsewhen(dataCal < io.divisor){
-        dataOutValid := true.B
         crcPass := false.B
-        requestFrame := true.B
         state := sDone
       }.otherwise{
         counter := counter + 1.U
@@ -94,15 +92,9 @@ class CRCCheck[T <: Data](gen: T, p: OOKTRXparams) extends Module{
     // CRC is done and the data either pass or fail the checking
     }
     is(sDone){
-      dataOutValid := false.B
-      when(io.in.valid){
-        state := sWorking
-        frameIn := io.in.bits
-        dataCal := io.in.bits(p.dataWidth+p.divisorWidth-2, 0)
-        frameIndex := io.in.bits(p.dataWidth+p.divisorWidth+p.frameIndexWidth-2, p.dataWidth+p.divisorWidth-1)
-        counter := 0.U
-      }.otherwise{
-        state := sRequest
+      when(io.out.ready && !dataOutValid){
+        dataOutValid := true.B
+        state := sIdle
       }
     }
   }

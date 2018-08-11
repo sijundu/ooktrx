@@ -33,6 +33,9 @@ case class OOKTRXparams
   val rxMemSize: Int = ceil(pow(2, frameIndexWidth)).toInt
   val stackSize: Int = ceil(pow(2, frameIndexWidth)).toInt
   val memSize: Int = ceil(pow(2, frameIndexWidth)).toInt
+  val resendFrame: UInt = 0.U((frameWidth-frameBitsWidth).W)
+  //val nextFrame: UInt = Cat(1.U((frameIndexWidth+dataWidth).W), 1.U((divisorWidth-1).W))
+  val nextFrame: UInt = 10.U((frameWidth-frameBitsWidth).W)
 
   require(frameBitsWidth > 3, s"Frame Bits Width must be at least 4, got $frameBitsWidth")
   //require(frameIndexWidth > 3, s"Frame Index Width must be at least 4, got $frameIndexWidth")

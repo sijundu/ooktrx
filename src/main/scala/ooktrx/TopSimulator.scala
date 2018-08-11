@@ -5,6 +5,7 @@ package ooktrx
 
 import chisel3._
 import chisel3.util._
+import scala.util.Random
 
 // Frame example 32-bit in total
 //   0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0  0 0 0 0
@@ -18,10 +19,14 @@ import chisel3.util._
 //  Note:   Width of specific sections may vary
 
 class TopSimulatorIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
-  val in = Flipped(Decoupled(UInt((p.frameIndexWidth + p.dataWidth).W)))
-  val out = Valid(UInt((1 + p.frameIndexWidth + p.dataWidth).W))
+  val txin = Flipped(Decoupled(UInt(p.dataWidth.W)))
+  val txout = Decoupled(UInt(p.dataWidth.W))
+  val rxin = Flipped(Decoupled(UInt(p.dataWidth.W)))
+  val rxout = Decoupled(UInt(p.dataWidth.W))
   val frameBits = Input(UInt(p.frameBitsWidth.W))
+  val frameIndex = Input(UInt(p.frameIndexWidth.W))
   val divisor = Input(UInt(p.divisorWidth.W))
+  val error = Input(Bool())
 }
 
 class TopSimulator[T <: Data](gen: T, p: OOKTRXparams) extends Module{ 
@@ -32,23 +37,25 @@ class TopSimulator[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   val rx = Module(new TopControl(gen, p))
 
   // Simulating the data transmission in air
-  val dataInAir = RegNext(tx.io.bitTx)
+  val dataInAir = RegNext(Mux(io.error, !tx.io.bitTx, tx.io.bitTx))
+  val dataInAirB = RegNext(rx.io.bitTx)
 
   // TX
   tx.io.frameBits := io.frameBits
   tx.io.divisor := io.divisor
-  tx.io.txMode := true.B
-  tx.io.dataTx <> io.in
-  tx.io.bitRx := false.B
+  tx.io.frameIndex := io.frameIndex
+  tx.io.in <> io.txin
+  tx.io.out <> io.txout
+  tx.io.bitRx := dataInAirB
+
   
   // RX
   rx.io.frameBits := io.frameBits
   rx.io.divisor:= io.divisor
-  rx.io.txMode := false.B
-  rx.io.dataTx.bits := 0.U
-  rx.io.dataTx.valid := false.B
+  rx.io.frameIndex := io.frameIndex
+  rx.io.in <> io.rxin
+  rx.io.out <> io.rxout
   rx.io.bitRx := dataInAir
-  io.out <> rx.io.dataRx
   
 
 }

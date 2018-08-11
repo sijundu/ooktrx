@@ -22,14 +22,18 @@ class FrameSyncIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val in = Input(Bool())
   val frameBits = Input(UInt(p.frameBitsWidth.W))
   val out = Decoupled(UInt(p.frameWidth.W))
+  val crcPass = Output(Bool())
+  val crcFail = Output(Bool())
 }
 
 class FrameSync[T <: Data](gen:T, p: OOKTRXparams) extends Module{
   val io = IO(new FrameSyncIO(gen, p))
 
+  // FSM definition
+  val sIdle :: sReceive :: sValid :: sCrcFail :: sCrcPass :: sResend :: Nil = Enum(6)
+  val state = Reg(init = sIdle)
 
-  val outValid = RegInit(Bool(), false.B)
-  io.out.valid := outValid
+  io.out.valid := Mux(state === sValid, true.B, false.B)
 
   val wholeFrame = RegInit(0.U(p.frameWidth.W))
   io.out.bits := wholeFrame
@@ -40,7 +44,61 @@ class FrameSync[T <: Data](gen:T, p: OOKTRXparams) extends Module{
 
   val syncOk = Wire(Bool())
   syncOk := (frameBitsReg === io.frameBits)
+  
+  io.crcPass := Mux(state === sCrcPass, true.B, false.B)
+  io.crcFail := Mux(state === sCrcFail, true.B, false.B)
 
+  val resendFrame = Cat(io.frameBits, p.resendFrame)
+  val nextFrame = Cat(io.frameBits, p.nextFrame)
+
+  ////////////////////// FSM Implementation ///////////////////////
+  switch(state){
+    is(sIdle){
+      when(!syncOk){
+        frameBitsReg := (frameBitsReg  << 1) | io.in
+        bitCounter := 0.U
+      }.otherwise{
+        bitCounter := bitCounter + 1.U
+        wholeFrame := (io.frameBits << 1) | io.in
+        state := sReceive
+      }
+    }
+    is(sReceive){
+      when(bitCounter < (p.frameWidth-p.frameBitsWidth).asUInt){
+        bitCounter := bitCounter + 1.U
+        wholeFrame := (wholeFrame << 1) | io.in
+      }.elsewhen(bitCounter >= (p.frameWidth-p.frameBitsWidth-1).asUInt){
+        bitCounter := bitCounter + 1.U
+        frameBitsReg := 0.U
+        when(wholeFrame === nextFrame){
+          state := sCrcPass
+        }.elsewhen(wholeFrame === resendFrame){
+          state := sCrcFail
+        }.elsewhen(bitCounter > (p.frameWidth-p.frameBitsWidth).asUInt){
+          state := sValid
+        }
+      }
+    }
+    is(sValid){
+      when(io.out.ready){
+        bitCounter := 0.U
+        wholeFrame := 0.U
+        state := sIdle
+      }
+    }
+    is(sCrcFail){
+      bitCounter := 0.U
+      wholeFrame := 0.U
+      state := sIdle
+    }
+    is(sCrcPass){
+      bitCounter := 0.U
+      wholeFrame := 0.U
+      state := sIdle
+    }
+  }
+
+  /*
   when(io.out.ready){
     when(!syncOk){
       frameBitsReg := (frameBitsReg  << 1) | io.in
@@ -53,6 +111,9 @@ class FrameSync[T <: Data](gen:T, p: OOKTRXparams) extends Module{
       bitCounter := bitCounter + 1.U
       wholeFrame := (wholeFrame << 1) | io.in
       when(bitCounter === (p.frameWidth-p.frameBitsWidth-1).asUInt){
+        when(wholeFrame === p.crcPass){
+
+        }
         outValid := true.B
         frameBitsReg := 0.U
       }
@@ -68,7 +129,5 @@ class FrameSync[T <: Data](gen:T, p: OOKTRXparams) extends Module{
     wholeFrame := 0.U
     outValid := false.B
   }
-    
-
-
+   */ 
 }

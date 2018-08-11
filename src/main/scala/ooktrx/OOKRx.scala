@@ -20,9 +20,11 @@ class OOKRxIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val in = Input(Bool())
   val frameBits = Input(UInt(p.frameBitsWidth.W))
   val divisor = Input(UInt(p.divisorWidth.W))
-  val out = Valid(UInt(p.dataWidth.W))
+  val out = Decoupled(UInt(p.dataWidth.W))
   val dataOutIndex = Output(UInt(p.frameIndexWidth.W))
   val crcPass = Output(Bool())
+  val crcPassAsTx = Output(Bool())
+  val crcFailAsTx = Output(Bool())
 }
 
 class OOKRx[T <: Data](gen: T, p: OOKTRXparams) extends Module {
@@ -37,9 +39,11 @@ class OOKRx[T <: Data](gen: T, p: OOKTRXparams) extends Module {
   frameSync.io.in := io.in
   frameSync.io.frameBits := io.frameBits
   crcCheck.io.divisor := io.divisor
-  io.out := crcCheck.io.out
+  io.out <> crcCheck.io.out
   io.dataOutIndex := crcCheck.io.dataOutIndex
   io.crcPass := crcCheck.io.crcPass
+  io.crcPassAsTx := frameSync.io.crcPass
+  io.crcFailAsTx := frameSync.io.crcFail
 
   // Interfaces between FrameSync and FrameStackRx
   frameSync.io.out <> frameStackRx.io.in

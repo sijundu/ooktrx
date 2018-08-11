@@ -26,20 +26,18 @@ class FrameStack[T <: Data](gen: T, p: OOKTRXparams, stackSize: Int) extends Mod
 
   val io = IO(new FrameStackIO(gen, p))
 
+  val stack = SyncReadMem(stackSize, UInt(p.frameWidth.W))
+  val readAddr = RegInit(0.U(log2Ceil(stackSize).toInt.W))
+  val writeAddr = RegInit(0.U(log2Ceil(stackSize).toInt.W))
+  val stackUsed = RegInit(0.U(log2Ceil(stackSize+1).toInt.W))
+
   val frameOut = RegInit(0.U(p.frameWidth.W))
+  frameOut := stack.read(readAddr, true.B)
   io.out.bits := frameOut
   val frameValidOut = RegInit(Bool(), false.B)
   io.out.valid := frameValidOut
 
-  val readAddr = RegInit(0.U(log2Ceil(stackSize).toInt.W))
-  val writeAddr = RegInit(0.U(log2Ceil(stackSize).toInt.W))
-
-  val stack = SyncReadMem(stackSize, UInt(p.frameWidth.W))
-
-  val stackUsed = RegInit(0.U(log2Ceil(stackSize+1).toInt.W))
-
   io.in.ready := !(stackUsed === stackSize.asUInt)
-  frameOut := stack.read(readAddr, true.B)
 
   when(io.in.ready && io.in.valid){
     stack.write(writeAddr, io.in.bits)

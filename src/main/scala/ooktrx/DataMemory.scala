@@ -42,34 +42,24 @@ class DataMemory[T <: Data](gen: T, p: OOKTRXparams, depth: Int) extends Module{
   val memUsage = RegInit(0.U((log2Ceil(p.rxMemSize+1).toInt).W))
   val writeAddr = RegInit(0.U((log2Ceil(p.rxMemSize).toInt).W))
   val readAddr = RegInit(0.U((log2Ceil(p.rxMemSize).toInt).W))
-  val dataOutValid = RegInit(Bool(), false.B)
 
-  io.out.valid := dataOutValid
-  io.out.bits := rxMem.read(readAddr)
+  io.out.valid := Mux(memUsage === 0.U, false.B, true.B)
+  io.out.bits := mem.read(readAddr, true.B)
   io.in.ready := Mux(memUsage === depth.asUInt, false.B, true.B)
 
   when(io.in.ready){
     when(io.in.valid){
-      io.out.valid := false.B
       mem.write(writeAddr, io.in.bits)
       writeAddr := Mux(writeAddr === (depth-1).asUInt, 0.U, writeAddr + 1.U)
       memUsage := memUsage + 1.U
-    }.elsewhen(memUsage > 0.U){
-      dataOutValid := true.B
+    }.elsewhen(io.out.valid && io.out.ready){
       readAddr := Mux(readAddr === (depth-1).asUInt, 0.U, readAddr + 1.U)
       memUsage := memUsage - 1.U
-    }.otherwise{
-      dataOutValid := false.B
-    }
-  }.elsewhen(!io.in.ready){
-    when(io.out.ready){
-      dataOutValid := true.B
-      readAddr := Mux(readAddr === (depth-1).asUInt, 0.U, readAddr + 1.U)
-      memUsage := memUsage - 1.U
-    }.otherwise{
-      dataOutValid := false.B
     }
   }.otherwise{
-    dataOutValid := false.B
+    when(io.out.ready){
+      readAddr := Mux(readAddr === (depth-1).asUInt, 0.U, readAddr + 1.U)
+      memUsage := memUsage - 1.U
+    }
   }
 }

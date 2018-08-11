@@ -18,58 +18,169 @@ import chisel3.util._
 
 class TopControlIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val frameBits = Input(UInt(p.frameBitsWidth.W))
+  val frameIndex = Input(UInt(p.frameIndexWidth.W))
   val divisor = Input(UInt(p.divisorWidth.W))
-  val txMode = Input(Bool()) // '1' for TX, '0' for RX, default '0'
 
   // TX interface
-  val dataTx = Flipped(Decoupled(UInt((p.frameIndexWidth + p.dataWidth).W)))
   val bitTx = Output(Bool())
 
   // RX interface
-  val dataRx = Valid(UInt((1 + p.frameIndexWidth + p.dataWidth).W))
   val bitRx = Input(Bool())
+
+  val in = Flipped(Decoupled(UInt(p.dataWidth.W)))
+  val out = Decoupled(UInt(p.dataWidth.W))
 }
 
 class TopControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   
   val io = IO(new TopControlIO(gen, p))
 
-  // Implementation of TX and RX blocks
-  val txControl = Module(new TxControl(gen, p))
-  val rxControl = Module(new RxControl(gen, p))
-
-  // Implementations of TxMemory and RxMemory
-  val txMemory = Module(new DataMemory(gen, p, p.txMemSize)
-  val rxMemory = Module(new DataMemory(gen, p, p.rxMemSize)
-
-  // TX interfaces
-  txControl.io.frameBits <> io.frameBits
-  txControl.io.divisor <> io.divisor
-  txControl.io.txEn <> io.txMode
-  txControl.io.in <> io.dataTx
-  io.bitTx <> txControl.io.out
-  
-  // RX interfaces
-  rxControl.io.frameBits <> io.frameBits
-  rxControl.io.divisor <> io.divisor
-  rxControl.io.rxEn <> !io.txMode
-  rxControl.io.in <> io.bitRx
-  io.dataRx <> rxControl.io.out
-  
-  /*
-  val sIdle :: sRxStart :: sTxStart :: Nil = Enum(3)
+  // FSM definition
+  val sIdle :: sRx :: sRead :: sTx :: sLoad :: sCrcPassAsRx :: sCrcFailAsRx :: sCrcPassAsTx :: sCrcFailAsTx :: Nil = Enum(9)
   val state = Reg(init = sIdle)
 
+  // Implementation of TX and RX blocks
+  val ooktx = Module(new OOKTx(gen, p))
+  val ookrx = Module(new OOKRx(gen, p))
+
+  // Implementations of TxMemory and RxMemory
+  val txMemory = Module(new DataMemory(gen, p, p.txMemSize))
+  val rxMemory = Module(new DataMemory(gen, p, p.rxMemSize))
+
+  // Counter to send a data as TX
+  val counter = RegInit(0.U(10.W))
+  val countValue = 1000.U
+  when(state === sCrcPassAsTx || state === sCrcFailAsTx){
+    counter := 0.U
+  }.otherwise{
+    counter := counter + 1.U
+  }
+  // Indicate if this is the first data to send as TX
+  val firstTx = RegInit(Bool(), true.B)
+  when(state === sCrcPassAsTx || state === sCrcFailAsTx){
+    firstTx := false.B
+  }.elsewhen(!txMemory.io.out.valid){
+    firstTx := true.B
+  }
+
+  val txMode = RegInit(Bool(), false.B) // '1' for TX, '0' for RX, default '0'
+  when(txMemory.io.out.valid){
+    txMode := true.B
+  }.elsewhen(ookrx.io.out.valid){
+    txMode := false.B
+  }
+
+  // TX interfaces
+  ooktx.io.frameBits <> io.frameBits
+  ooktx.io.frameIndex <> io.frameIndex
+  ooktx.io.divisor <> io.divisor
+  io.bitTx := ooktx.io.out
+  
+  // RX interfaces
+  ookrx.io.frameBits <> io.frameBits
+  ookrx.io.divisor <> io.divisor
+  ookrx.io.in <> io.bitRx
+
+  // Internal registers
+  val loadDataBuffer = RegInit(0.U(p.dataWidth.W))
+
+  // sIdle state
+  ookrx.io.out.ready := Mux(state === sIdle, true.B, false.B)
+
+  // sRx state
+  rxMemory.io.in.bits := ookrx.io.out.bits
+  rxMemory.io.in.valid := Mux(state === sRx, true.B, false.B)
+  
+  // sRead state
+  io.out.bits := rxMemory.io.out.bits
+  io.out.valid := Mux(state === sRead, true.B, false.B)
+  rxMemory.io.out.ready := Mux(state === sRead, true.B, false.B)
+
+  // sTx state
+  ooktx.io.in.bits := txMemory.io.out.bits
+  ooktx.io.in.valid := Mux(state === sTx, true.B, false.B)
+  txMemory.io.out.ready := Mux(state === sTx, true.B, false.B)
+
+  // sLoad state
+  txMemory.io.in.bits := loadDataBuffer
+  txMemory.io.in.valid := Mux(state === sLoad, true.B, false.B)
+  io.in.ready := Mux(state === sLoad, true.B, false.B)
+
+  // CRC hazzards As Rx
+  ooktx.io.crcPassAsRx := Mux(state === sCrcPassAsRx, true.B, false.B)
+  ooktx.io.crcFailAsRx := Mux(state === sCrcFailAsRx, true.B, false.B)
+
+  // CRC hazzards As Tx
+  ooktx.io.resendAsTx := Mux(state === sCrcFailAsTx, true.B, false.B)
+  ooktx.io.sendAsTx := Mux(state === sCrcPassAsTx, true.B, false.B)
+  
+  // Hazzard flags
+  val crcPassAsTx = RegInit(Bool(), false.B)
+  val crcFailAsTx = RegInit(Bool(), false.B)
+  //val resend = RegInit(Bool(), false.B)
+  when(ookrx.io.crcPassAsTx || (counter === countValue && firstTx)){
+    crcPassAsTx := true.B
+  }.elsewhen(state === sCrcPassAsTx){
+    crcPassAsTx := false.B
+  }
+  when(ookrx.io.crcFailAsTx || (counter === countValue && !firstTx)){
+    crcFailAsTx := true.B
+  }.elsewhen(state === sCrcFailAsTx){
+    crcFailAsTx := false.B
+  }
+  //when(io.resend){
+  //  resend := true.B
+  //}.elsewhen(state === sResend){
+  //  resend := false.B
+ // }
+
+
+  ////////////////////// FSM Implementation ///////////////////////
   switch(state){
     is(sIdle){
-      when(
+      when(crcPassAsTx && txMode){
+        state := sCrcPassAsTx
+      }.elsewhen(crcFailAsTx && txMode){
+        state := sCrcFailAsTx
+      }.elsewhen(ookrx.io.out.valid && !txMode){
+        when(ookrx.io.crcPass){
+          state := sCrcPassAsRx
+        }.otherwise{
+          state := sCrcFailAsRx
+        }
+      }.elsewhen(io.out.ready && rxMemory.io.out.valid){
+        state := sRead
+      }.elsewhen(ooktx.io.in.ready && txMemory.io.out.valid){
+        state := sTx
+      }.elsewhen(io.in.valid && txMemory.io.in.ready){
+        loadDataBuffer := io.in.bits
+        state := sLoad
+      }
     }
-    is(sRxStart){
+    is(sRx){
+      state := sIdle
     }
-    is(sTxStart){
+    is(sRead){
+      state := sIdle
+    }
+    is(sTx){
+      state := sIdle
+    }
+    is(sLoad){
+      state := sIdle
+    }
+    is(sCrcPassAsRx){
+      state := sRx
+    }
+    is(sCrcFailAsRx){
+      state := sIdle
+    }
+    is(sCrcPassAsTx){
+      state := sIdle
+    }
+    is(sCrcFailAsTx){
+      state := sIdle
     }
   }
-  */
-
 }
 

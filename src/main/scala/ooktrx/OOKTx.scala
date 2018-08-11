@@ -22,6 +22,10 @@ class OOKTxIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val frameBits = Input(UInt(p.frameBitsWidth.W))
   val frameIndex = Input(UInt(p.frameIndexWidth.W))
   val divisor = Input(UInt(p.divisorWidth.W))
+  val crcPassAsRx = Input(Bool())
+  val crcFailAsRx = Input(Bool())
+  val resendAsTx = Input(Bool())
+  val sendAsTx = Input(Bool())
 }
 
 class OOKTx[T <: Data](gen: T, p: OOKTRXparams) extends Module{
@@ -38,6 +42,11 @@ class OOKTx[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   crcEncode.io.divisor := io.divisor
   crcEncode.io.frameBits := io.frameBits
   crcEncode.io.frameIndex := io.frameIndex
+  frameSend.io.frameBits := io.frameBits
+  frameSend.io.crcPassAsRx := io.crcPassAsRx
+  frameSend.io.crcFailAsRx := io.crcFailAsRx
+  frameSend.io.resendAsTx := io.resendAsTx
+  frameSend.io.sendAsTx := io.sendAsTx
 
   // Interfaces between CRCEncode and Frame Stack
   crcEncode.io.out <> frameStackTx.io.in
