@@ -27,11 +27,12 @@ case class OOKTRXparams
 ){
 
   val frameWidth: Int = frameBitsWidth + frameIndexWidth + dataWidth + divisorWidth - 1
-  val txStackSize: Int = ceil(pow(2, frameIndexWidth)).toInt
-  val txMemSize: Int = ceil(pow(2, frameIndexWidth)).toInt
+  val txStackSize: Int = 100
   val rxStackSize: Int = 2
-  val rxMemSize: Int = ceil(pow(2, frameIndexWidth)).toInt
+  //val stackSize: Int = ceil(pow(2, frameIndexWidth)).toInt
   val stackSize: Int = ceil(pow(2, frameIndexWidth)).toInt
+  val rxMemSize: Int = 100
+  val txMemSize: Int = 100
   val memSize: Int = ceil(pow(2, frameIndexWidth)).toInt
   val resendFrame: UInt = 0.U((frameWidth-frameBitsWidth).W)
   //val nextFrame: UInt = Cat(1.U((frameIndexWidth+dataWidth).W), 1.U((divisorWidth-1).W))

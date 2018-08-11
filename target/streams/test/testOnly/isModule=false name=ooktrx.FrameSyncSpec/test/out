@@ -1,14 +1,2 @@
 [0m[[0m[0minfo[0m] [0m[0m[32mFrameSyncSpec:[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m- First test: with 4-bit frame bits *** FAILED ***[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m  chisel3.internal.ChiselException: Error: Not in a UserModule. Likely cause: Missed Module() wrap, bare chisel API call, or attempting to construct hardware inside a BlackBox.[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m  at chisel3.internal.throwException$.apply(Error.scala:13)[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m  at chisel3.internal.Builder$.forcedUserModule(Builder.scala:209)[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m  at chisel3.internal.Builder$.pushCommand(Builder.scala:236)[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m  at chisel3.core.WhenContext$$anonfun$1.apply(When.scala:72)[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m  at chisel3.core.WhenContext$$anonfun$1.apply(When.scala:72)[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m  at scala.Option.foreach(Option.scala:257)[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m  at chisel3.core.WhenContext.<init>(When.scala:72)[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m  at chisel3.core.when$.apply(When.scala:32)[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m  at ooktrx.FrameSyncTester.<init>(FrameSyncSpec.scala:24)[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m  at ooktrx.FrameSyncSpec$$anonfun$2$$anonfun$apply$mcZ$sp$1.apply(FrameSyncSpec.scala:41)[0m[0m
-[0m[[0m[0minfo[0m] [0m[0m[31m  ...[0m[0m
+[0m[[0m[0minfo[0m] [0m[0m[32m- First test: with 4-bit frame bits[0m[0m
