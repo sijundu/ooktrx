@@ -13,14 +13,18 @@ class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester
 
   val params = OokParams
   val frameBits = "b1111".asUInt(params.frameBitsWidth.W)
+  val frameIndex = "b00001111".asUInt(params.frameIndexWidth.W)
   val divisor = "b101010101".asUInt(params.divisorWidth.W)
   var numberOfSteps = 0
   var startStepNb = 100
   var frameNb = 10
 
   poke(c.io.frameBits, frameBits)
+  poke(c.io.frameIndex, frameIndex)
   poke(c.io.divisor, divisor)
 
+  poke(c.io.rxout.ready, true.B)
+  /*
   while(numberOfSteps < 5000){
     if((numberOfSteps > startStepNb) && (numberOfSteps <= (startStepNb+frameNb))){
       poke(c.io.in.bits, (((numberOfSteps-startStepNb) << params.dataWidth)+(Random.nextInt(math.pow(2, (params.dataWidth.toLong)).toInt))).asUInt)
@@ -34,6 +38,30 @@ class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester
     }else{
       poke(c.io.in.bits, 0.U((params.frameIndexWidth + params.dataWidth).W))
       poke(c.io.in.valid, false.B)
+    }
+    step(1)
+    numberOfSteps += 1
+  }
+  */
+  while(numberOfSteps < 5000){
+    //poke(c.io.in.bits, (((numberOfSteps-startStepNb) << params.dataWidth)+(Random.nextInt(math.pow(2, (params.dataWidth.toLong)).toInt))).asUInt)
+    if(numberOfSteps % 5 == 3 && frameNb >0){
+      frameNb -= 1
+      poke(c.io.txin.bits, Random.nextInt(math.pow(2, (params.dataWidth)).toInt).asUInt)
+      poke(c.io.txin.valid, true.B)
+    //}else if((numberOfSteps >= 1100) && (numberOfSteps < 1118)){
+    //  poke(c.io.dataIn, Random.nextInt(math.pow(2, (c.frameIndexWidth+c.dataWidth)).toInt).asUInt)
+    //  poke(c.io.dataInValid, true.B)
+    //  poke(c.io.txStart, true.B)
+    //  poke(c.io.frameCount, 18.U)
+    }else{
+      poke(c.io.txin.bits, 0.U(params.dataWidth.W))
+      poke(c.io.txin.valid, false.B)
+    }
+    if(Random.nextInt(100).toInt == 1){
+      poke(c.io.error, true.B)
+    }else{
+      poke(c.io.error, false.B)
     }
     step(1)
     numberOfSteps += 1
