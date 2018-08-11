@@ -43,7 +43,7 @@ class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester
     numberOfSteps += 1
   }
   */
-  while(numberOfSteps < 5000){
+  while(numberOfSteps < 7000){
     //poke(c.io.in.bits, (((numberOfSteps-startStepNb) << params.dataWidth)+(Random.nextInt(math.pow(2, (params.dataWidth.toLong)).toInt))).asUInt)
     if(numberOfSteps % 5 == 3 && frameNb >0){
       frameNb -= 1
