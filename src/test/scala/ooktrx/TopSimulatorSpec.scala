@@ -17,7 +17,9 @@ class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester
   val divisor = "b101010101".asUInt(params.divisorWidth.W)
   var numberOfSteps = 0
   var startStepNb = 100
-  var frameNb = 10
+  var frameNb = 30
+  var rxDataCount = 0
+  val frameNumber = frameNb
 
   poke(c.io.frameBits, frameBits)
   poke(c.io.frameIndex, frameIndex)
@@ -43,11 +45,12 @@ class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester
     numberOfSteps += 1
   }
   */
-  while(numberOfSteps < 8000){
+  while(numberOfSteps < 20000 && rxDataCount < frameNumber){
     //poke(c.io.in.bits, (((numberOfSteps-startStepNb) << params.dataWidth)+(Random.nextInt(math.pow(2, (params.dataWidth.toLong)).toInt))).asUInt)
-    if(numberOfSteps % 5 == 1 && frameNb >0){
-      poke(c.io.txin.bits, Random.nextInt(math.pow(2, (params.dataWidth)).toInt).asUInt)
-      poke(c.io.txin.valid, true.B)
+    //if(numberOfSteps % 5 == 1 && frameNb >0){
+    if(frameNb >0){
+      poke(c.io.hostIn.bits, Random.nextInt(math.pow(2, (params.dataWidth)).toInt).asUInt)
+      poke(c.io.hostIn.valid, true.B)
       frameNb -= 1
     //}else if((numberOfSteps >= 1100) && (numberOfSteps < 1118)){
     //  poke(c.io.dataIn, Random.nextInt(math.pow(2, (c.frameIndexWidth+c.dataWidth)).toInt).asUInt)
@@ -55,14 +58,18 @@ class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester
     //  poke(c.io.txStart, true.B)
     //  poke(c.io.frameCount, 18.U)
     }else{
-      poke(c.io.txin.bits, 0.U(params.dataWidth.W))
-      poke(c.io.txin.valid, false.B)
+      poke(c.io.hostIn.bits, 0.U(params.dataWidth.W))
+      poke(c.io.hostIn.valid, false.B)
     }
     if(Random.nextInt(100).toInt == 1){
       poke(c.io.error, true.B)
     }else{
       poke(c.io.error, false.B)
     }
+    if(peek(c.io.rxout.valid) == BigInt(0)){
+      rxDataCount += 1
+    }
+    print(rxDataCount)
     step(1)
     numberOfSteps += 1
   }
