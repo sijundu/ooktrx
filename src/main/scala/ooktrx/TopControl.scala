@@ -82,7 +82,6 @@ class TopControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   ookrx.io.in <> io.bitRx
 
   // Internal registers
-  //val loadDataBuffer = RegInit(0.U(p.dataWidth.W))
 
   // sIdle state
   ookrx.io.out.ready := Mux(state === sIdle, true.B, false.B)
@@ -118,7 +117,6 @@ class TopControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   // Hazzard flags
   val crcPassAsTx = RegInit(Bool(), false.B)
   val crcFailAsTx = RegInit(Bool(), false.B)
-  //val resend = RegInit(Bool(), false.B)
   when(ookrx.io.crcPassAsTx || (counter === countValue && firstTx)){
     crcPassAsTx := true.B
   }.elsewhen(state === sCrcPassAsTx){
@@ -129,11 +127,6 @@ class TopControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   }.elsewhen(state === sCrcFailAsTx){
     crcFailAsTx := false.B
   }
-  //when(io.resend){
-  //  resend := true.B
-  //}.elsewhen(state === sResend){
-  //  resend := false.B
- // }
 
 
   ////////////////////// FSM Implementation ///////////////////////
