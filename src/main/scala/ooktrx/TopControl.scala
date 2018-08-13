@@ -82,7 +82,7 @@ class TopControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   ookrx.io.in <> io.bitRx
 
   // Internal registers
-  val loadDataBuffer = RegInit(0.U(p.dataWidth.W))
+  //val loadDataBuffer = RegInit(0.U(p.dataWidth.W))
 
   // sIdle state
   ookrx.io.out.ready := Mux(state === sIdle, true.B, false.B)
@@ -102,7 +102,8 @@ class TopControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   txMemory.io.out.ready := Mux(state === sTx, true.B, false.B)
 
   // sLoad state
-  txMemory.io.in.bits := loadDataBuffer
+  //txMemory.io.in.bits := loadDataBuffer
+  txMemory.io.in.bits := io.in.bits
   txMemory.io.in.valid := Mux(state === sLoad, true.B, false.B)
   io.in.ready := Mux(state === sLoad, true.B, false.B)
 
@@ -153,7 +154,7 @@ class TopControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
       }.elsewhen(ooktx.io.in.ready && txMemory.io.out.valid){
         state := sTx
       }.elsewhen(io.in.valid && txMemory.io.in.ready){
-        loadDataBuffer := io.in.bits
+        //loadDataBuffer := io.in.bits
         state := sLoad
       }
     }

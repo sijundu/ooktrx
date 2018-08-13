@@ -19,7 +19,7 @@ import scala.util.Random
 //  Note:   Width of specific sections may vary
 
 class TopSimulatorIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
-  val txin = Flipped(Decoupled(UInt(p.dataWidth.W)))
+  //val txin = Flipped(Decoupled(UInt(p.dataWidth.W)))
   val txout = Decoupled(UInt(p.dataWidth.W))
   val rxin = Flipped(Decoupled(UInt(p.dataWidth.W)))
   val rxout = Decoupled(UInt(p.dataWidth.W))
@@ -27,6 +27,7 @@ class TopSimulatorIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val frameIndex = Input(UInt(p.frameIndexWidth.W))
   val divisor = Input(UInt(p.divisorWidth.W))
   val error = Input(Bool())
+  val hostIn = Flipped(Decoupled(UInt(p.dataWidth.W)))
 }
 
 class TopSimulator[T <: Data](gen: T, p: OOKTRXparams) extends Module{ 
@@ -40,11 +41,17 @@ class TopSimulator[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   val dataInAir = RegNext(Mux(io.error, !tx.io.bitTx, tx.io.bitTx))
   val dataInAirB = RegNext(rx.io.bitTx)
 
+
+  // Host definition
+  val host = Module(new HostMem(gen, p))
+  io.hostIn <> host.io.hostIn
+  
+  tx.io.in <> host.io.hostOut
+
   // TX
   tx.io.frameBits := io.frameBits
   tx.io.divisor := io.divisor
   tx.io.frameIndex := io.frameIndex
-  tx.io.in <> io.txin
   tx.io.out <> io.txout
   tx.io.bitRx := dataInAirB
 

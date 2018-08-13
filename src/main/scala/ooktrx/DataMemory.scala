@@ -39,9 +39,9 @@ class DataMemory[T <: Data](gen: T, p: OOKTRXparams, depth: Int) extends Module{
 
 
   // Internal registers
-  val memUsage = RegInit(0.U((log2Ceil(p.rxMemSize+1).toInt).W))
-  val writeAddr = RegInit(0.U((log2Ceil(p.rxMemSize).toInt).W))
-  val readAddr = RegInit(0.U((log2Ceil(p.rxMemSize).toInt).W))
+  val memUsage = RegInit(0.U((log2Ceil(depth).toInt).W))
+  val writeAddr = RegInit(0.U((log2Ceil(depth).toInt).W))
+  val readAddr = RegInit(0.U((log2Ceil(depth).toInt).W))
 
   io.out.valid := Mux(memUsage === 0.U, false.B, true.B)
   io.out.bits := mem.read(readAddr, true.B)
