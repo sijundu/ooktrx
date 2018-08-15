@@ -10,7 +10,7 @@ import chisel3.util._
 //  |       A        |    B   |                  C                 |    D  |
 //
 //  A+B+C+D @frameWidth = 32
-//  A       @frameBitsWidth = 8
+//  A       @preambleWidth = 8
 //  B       @frameIndexWidth = 4
 //  C       @dataWidth = 16
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
@@ -18,7 +18,7 @@ import chisel3.util._
 
 class OOKRxIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val in = Input(Bool())
-  val frameBits = Input(UInt(p.frameBitsWidth.W))
+  val preamble = Input(UInt(p.preambleWidth.W))
   val divisor = Input(UInt(p.divisorWidth.W))
   val out = Decoupled(UInt(p.dataWidth.W))
   val dataOutIndex = Output(UInt(p.frameIndexWidth.W))
@@ -37,7 +37,7 @@ class OOKRx[T <: Data](gen: T, p: OOKTRXparams) extends Module {
 
   // IOs of OOKRx
   frameSync.io.in := io.in
-  frameSync.io.frameBits := io.frameBits
+  frameSync.io.preamble := io.preamble
   crcCheck.io.divisor := io.divisor
   io.out <> crcCheck.io.out
   io.dataOutIndex := crcCheck.io.dataOutIndex

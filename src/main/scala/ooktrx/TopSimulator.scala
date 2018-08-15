@@ -12,7 +12,7 @@ import scala.util.Random
 //  |       A        |    B   |                  C                 |    D  |
 //
 //  A+B+C+D @frameWidth = 32
-//  A       @frameBitsWidth = 8
+//  A       @preambleWidth = 8
 //  B       @frameIndexWidth = 4
 //  C       @dataWidth = 16
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
@@ -23,7 +23,7 @@ class TopSimulatorIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val txout = Decoupled(UInt(p.dataWidth.W))
   val rxin = Flipped(Decoupled(UInt(p.dataWidth.W)))
   val rxout = Decoupled(UInt(p.dataWidth.W))
-  val frameBits = Input(UInt(p.frameBitsWidth.W))
+  val preamble = Input(UInt(p.preambleWidth.W))
   val frameIndex = Input(UInt(p.frameIndexWidth.W))
   val divisor = Input(UInt(p.divisorWidth.W))
   val error = Input(Bool())
@@ -49,7 +49,7 @@ class TopSimulator[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   tx.io.in <> host.io.hostOut
 
   // TX
-  tx.io.frameBits := io.frameBits
+  tx.io.preamble := io.preamble
   tx.io.divisor := io.divisor
   tx.io.frameIndex := io.frameIndex
   tx.io.out <> io.txout
@@ -57,7 +57,7 @@ class TopSimulator[T <: Data](gen: T, p: OOKTRXparams) extends Module{
 
   
   // RX
-  rx.io.frameBits := io.frameBits
+  rx.io.preamble := io.preamble
   rx.io.divisor:= io.divisor
   rx.io.frameIndex := io.frameIndex
   rx.io.in <> io.rxin

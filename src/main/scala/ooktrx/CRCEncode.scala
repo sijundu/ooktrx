@@ -10,7 +10,7 @@ import chisel3.util._
 //  |       A        |    B   |                  C                 |    D  |
 //
 //  A+B+C+D @frameWidth = 32
-//  A       @frameBitsWidth = 8
+//  A       @PreambleWidth = 8
 //  B       @frameIndexWidth = 4
 //  C       @dataWidth = 16
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
@@ -19,7 +19,7 @@ import chisel3.util._
 class CRCEncodeIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val in = Flipped(Decoupled(UInt(p.dataWidth.W)))
   val out = Decoupled(UInt(p.frameWidth.W))
-  val frameBits = Input(UInt(p.frameBitsWidth.W))
+  val preamble = Input(UInt(p.preambleWidth.W))
   val frameIndex = Input(UInt(p.frameIndexWidth.W))
   val divisor = Input(UInt(p.divisorWidth.W))
 }
@@ -38,7 +38,7 @@ class CRCEncode[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   val validOut = RegInit(Bool(), false.B)
   io.out.valid := validOut
 
-  val frameBitsBuffer = RegInit(0.U(p.frameBitsWidth.W))
+  val preambleBuffer = RegInit(0.U(p.preambleWidth.W))
   val frameIndexBuffer = RegInit(0.U(p.frameIndexWidth.W))
   val dataInBuffer = RegInit(0.U(p.dataWidth.W))
 
@@ -63,7 +63,7 @@ class CRCEncode[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   */
 
   when(io.out.ready && requestData && io.in.valid){
-    frameBitsBuffer := io.frameBits
+    preambleBuffer := io.preamble
     frameIndexBuffer := io.frameIndex
     dataInBuffer := io.in.bits
     dataExtended := io.in.bits << (p.divisorWidth - 1)
@@ -72,11 +72,11 @@ class CRCEncode[T <: Data](gen: T, p: OOKTRXparams) extends Module{
     validOut := false.B
   }.elsewhen(!validOut && !requestData){
     when(dataExtended < (1.U << (p.divisorWidth-1))){
-      frameOut := Cat(frameBitsBuffer, frameIndexBuffer, dataInBuffer, dataExtended(p.divisorWidth-2, 0))
+      frameOut := Cat(preambleBuffer, frameIndexBuffer, dataInBuffer, dataExtended(p.divisorWidth-2, 0))
       validOut := true.B
       requestData := true.B
     }.elsewhen(dataExtended === io.divisor){
-      frameOut := Cat(frameBitsBuffer, frameIndexBuffer, (dataInBuffer << (p.divisorWidth-1)))
+      frameOut := Cat(preambleBuffer, frameIndexBuffer, (dataInBuffer << (p.divisorWidth-1)))
       validOut := true.B
       requestData := true.B
     }.otherwise{

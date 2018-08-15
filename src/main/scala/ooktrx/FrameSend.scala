@@ -10,7 +10,7 @@ import chisel3.util._
 //  |       A        |    B   |                  C                 |    D  |
 //
 //  A+B+C+D @frameWidth = 32
-//  A       @frameBitsWidth = 8
+//  A       @preambleWidth = 8
 //  B       @frameIndexWidth = 4
 //  C       @dataWidth = 16
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
@@ -18,7 +18,7 @@ import chisel3.util._
 
 class FrameSendIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val in = Flipped(Decoupled(UInt(p.frameWidth.W)))
-  val frameBits = Input(UInt(p.frameBitsWidth.W))
+  val preamble = Input(UInt(p.preambleWidth.W))
   val crcPassAsRx = Input(Bool())
   val crcFailAsRx = Input(Bool())
   val sendAsTx = Input(Bool())
@@ -36,8 +36,8 @@ class FrameSend[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   val out = RegInit(Bool(), false.B)
   io.out := out
 
-  val resendFrame = Cat(io.frameBits, p.resendFrame)
-  val nextFrame = Cat(io.frameBits, p.nextFrame)
+  val resendFrame = Cat(io.preamble, p.resendFrame)
+  val nextFrame = Cat(io.preamble, p.nextFrame)
 
   // Hazzard flags
   val crcPassAsRx = RegInit(Bool(), false.B)

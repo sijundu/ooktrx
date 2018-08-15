@@ -11,7 +11,7 @@ import scala.math._
 //  |       A        |    B   |                  C                 |    D  |
 //
 //  A+B+C+D @frameWidth = 32
-//  A       @frameBitsWidth = 8
+//  A       @PreambleWidth = 8
 //  B       @frameIndexWidth = 4
 //  C       @dataWidth = 16
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
@@ -20,7 +20,7 @@ import scala.math._
 
 class FrameSyncIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val in = Input(Bool())
-  val frameBits = Input(UInt(p.frameBitsWidth.W))
+  val preamble = Input(UInt(p.preambleWidth.W))
   val out = Decoupled(UInt(p.frameWidth.W))
   val crcPass = Output(Bool())
   val crcFail = Output(Bool())
@@ -40,41 +40,41 @@ class FrameSync[T <: Data](gen:T, p: OOKTRXparams) extends Module{
 
   val bitCounter = RegInit(0.U(log2Ceil(p.frameWidth).toInt.W))
 
-  val frameBitsReg = RegInit(0.U(p.frameBitsWidth.W))
+  val preambleReg = RegInit(0.U(p.preambleWidth.W))
 
   val syncOk = Wire(Bool())
-  syncOk := (frameBitsReg === io.frameBits)
+  syncOk := (preambleReg === io.preamble)
   
   io.crcPass := Mux(state === sCrcPass, true.B, false.B)
   io.crcFail := Mux(state === sCrcFail, true.B, false.B)
 
-  val resendFrame = Cat(io.frameBits, p.resendFrame)
-  val nextFrame = Cat(io.frameBits, p.nextFrame)
+  val resendFrame = Cat(io.preamble, p.resendFrame)
+  val nextFrame = Cat(io.preamble, p.nextFrame)
 
   ////////////////////// FSM Implementation ///////////////////////
   switch(state){
     is(sIdle){
       when(!syncOk){
-        frameBitsReg := (frameBitsReg  << 1) | io.in
+        preambleReg := (preambleReg  << 1) | io.in
         bitCounter := 0.U
       }.otherwise{
         bitCounter := bitCounter + 1.U
-        wholeFrame := (io.frameBits << 1) | io.in
+        wholeFrame := (io.preamble << 1) | io.in
         state := sReceive
       }
     }
     is(sReceive){
-      when(bitCounter < (p.frameWidth-p.frameBitsWidth).asUInt){
+      when(bitCounter < (p.frameWidth-p.preambleWidth).asUInt){
         bitCounter := bitCounter + 1.U
         wholeFrame := (wholeFrame << 1) | io.in
-      }.elsewhen(bitCounter >= (p.frameWidth-p.frameBitsWidth-1).asUInt){
+      }.elsewhen(bitCounter >= (p.frameWidth-p.preambleWidth-1).asUInt){
         bitCounter := bitCounter + 1.U
-        frameBitsReg := 0.U
+        preambleReg := 0.U
         when(wholeFrame === nextFrame){
           state := sCrcPass
         }.elsewhen(wholeFrame === resendFrame){
           state := sCrcFail
-        }.elsewhen(bitCounter > (p.frameWidth-p.frameBitsWidth).asUInt){
+        }.elsewhen(bitCounter > (p.frameWidth-p.preambleWidth).asUInt){
           state := sValid
         }
       }
@@ -101,21 +101,21 @@ class FrameSync[T <: Data](gen:T, p: OOKTRXparams) extends Module{
   /*
   when(io.out.ready){
     when(!syncOk){
-      frameBitsReg := (frameBitsReg  << 1) | io.in
+      preambleReg := (preambleReg  << 1) | io.in
       bitCounter := 0.U
     }.elsewhen(bitCounter === 0.U){
       bitCounter := bitCounter + 1.U
-      wholeFrame := (io.frameBits << 1) | io.in
-    //}.elsewhen(bitCounter < (p.frameWidth-frameBitsWidth-frameIndexWidth).asUInt){
-    }.elsewhen(bitCounter < (p.frameWidth-p.frameBitsWidth).asUInt){
+      wholeFrame := (io.preamble << 1) | io.in
+    //}.elsewhen(bitCounter < (p.frameWidth-preambleWidth-frameIndexWidth).asUInt){
+    }.elsewhen(bitCounter < (p.frameWidth-p.preambleWidth).asUInt){
       bitCounter := bitCounter + 1.U
       wholeFrame := (wholeFrame << 1) | io.in
-      when(bitCounter === (p.frameWidth-p.frameBitsWidth-1).asUInt){
+      when(bitCounter === (p.frameWidth-p.preambleWidth-1).asUInt){
         when(wholeFrame === p.crcPass){
 
         }
         outValid := true.B
-        frameBitsReg := 0.U
+        preambleReg := 0.U
       }
     }
   }.otherwise{

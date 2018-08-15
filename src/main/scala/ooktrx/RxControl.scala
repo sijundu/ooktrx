@@ -10,7 +10,7 @@ import chisel3.util._
 //  |       A        |    B   |                  C                 |    D  |
 //
 //  A+B+C+D @frameWidth = 32
-//  A       @frameBitsWidth = 8
+//  A       @preambleWidth = 8
 //  B       @frameIndexWidth = 4
 //  C       @dataWidth = 16
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
@@ -21,7 +21,7 @@ class RxControlIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val in = Input(Bool())
   val out = Valid(UInt((1 + p.frameIndexWidth + p.dataWidth).W))
   val rxEn = Input(Bool())
-  val frameBits = Input(UInt(p.frameBitsWidth.W))
+  val preamble = Input(UInt(p.preambleWidth.W))
   val divisor = Input(UInt(p.divisorWidth.W))
 }
 
@@ -55,7 +55,7 @@ class RxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   // Implementation of OOKRx block
   val ookrx = Module(new OOKRx(gen, p))
   ookrx.io.in := Mux(io.rxEn, io.in, false.B)
-  ookrx.io.frameBits := io.frameBits
+  ookrx.io.preamble := io.preamble
   ookrx.io.divisor := io.divisor
 
   //dataOut := rxMem.read(readAddr)

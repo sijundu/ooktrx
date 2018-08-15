@@ -10,7 +10,7 @@ import chisel3.util._
 //  |       A        |    B   |                  C                 |    D  |
 //
 //  A+B+C+D @frameWidth = 32
-//  A       @frameBitsWidth = 8
+//  A       @preambleWidth = 8
 //  B       @frameIndexWidth = 4
 //  C       @dataWidth = 16
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
@@ -19,7 +19,7 @@ import chisel3.util._
 class TxControlIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
   val in = Flipped(Decoupled(UInt((p.frameIndexWidth + p.dataWidth).W)))
   val out = Output(Bool())
-  val frameBits = Input(UInt(p.frameBitsWidth.W))
+  val preamble = Input(UInt(p.preambleWidth.W))
   val divisor = Input(UInt(p.divisorWidth.W))
   val txEn = Input(Bool())
 }
@@ -49,7 +49,7 @@ class TxControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   // Implementation of OOKRx block
   val ooktx = Module(new OOKTx(gen, p))
   io.out := ooktx.io.out
-  ooktx.io.frameBits := io.frameBits
+  ooktx.io.preamble := io.preamble
   ooktx.io.divisor := io.divisor
   val dataToSend = RegInit(0.U((p.frameIndexWidth + p.dataWidth).W))
   ooktx.io.in.bits := dataToSend(p.dataWidth-1, 0)

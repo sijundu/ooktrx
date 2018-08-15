@@ -10,14 +10,14 @@ import chisel3.util._
 //  |       A        |    B   |                  C                 |    D  |
 //
 //  A+B+C+D @frameWidth = 32
-//  A       @frameBitsWidth = 8
+//  A       @preambleWidth = 8
 //  B       @frameIndexWidth = 4
 //  C       @dataWidth = 16
 //  D       is the CRC residue: @divisorWidth = 5, which is WidthOf(D) + 1
 //  Note:   Width of specific sections may vary
 
 class TopControlIO[T <: Data](gen: T, p: OOKTRXparams) extends Bundle{
-  val frameBits = Input(UInt(p.frameBitsWidth.W))
+  val preamble = Input(UInt(p.preambleWidth.W))
   val frameIndex = Input(UInt(p.frameIndexWidth.W))
   val divisor = Input(UInt(p.divisorWidth.W))
 
@@ -71,13 +71,13 @@ class TopControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   }
 
   // TX interfaces
-  ooktx.io.frameBits <> io.frameBits
+  ooktx.io.preamble <> io.preamble
   ooktx.io.frameIndex <> io.frameIndex
   ooktx.io.divisor <> io.divisor
   io.bitTx := ooktx.io.out
   
   // RX interfaces
-  ookrx.io.frameBits <> io.frameBits
+  ookrx.io.preamble <> io.preamble
   ookrx.io.divisor <> io.divisor
   ookrx.io.in <> io.bitRx
 
