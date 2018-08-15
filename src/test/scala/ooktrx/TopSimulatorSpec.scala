@@ -17,7 +17,7 @@ class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester
   val divisor = "b101010101".asUInt(params.divisorWidth.W)
   var numberOfSteps = 0
   var startStepNb = 100
-  var frameNb = 30
+  var frameNb = 50
   var rxDataCount = 0
   val frameNumber = frameNb
 
@@ -26,26 +26,8 @@ class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester
   poke(c.io.divisor, divisor)
 
   poke(c.io.rxout.ready, true.B)
-  /*
-  while(numberOfSteps < 5000){
-    if((numberOfSteps > startStepNb) && (numberOfSteps <= (startStepNb+frameNb))){
-      poke(c.io.in.bits, (((numberOfSteps-startStepNb) << params.dataWidth)+(Random.nextInt(math.pow(2, (params.dataWidth.toLong)).toInt))).asUInt)
-      //poke(c.io.dataIn, Random.nextInt(math.pow(2, (c.frameIndexWidth+c.dataWidth)).toLong).asUInt)
-      poke(c.io.in.valid, true.B)
-    //}else if((numberOfSteps >= 1100) && (numberOfSteps < 1118)){
-    //  poke(c.io.dataIn, Random.nextInt(math.pow(2, (c.frameIndexWidth+c.dataWidth)).toInt).asUInt)
-    //  poke(c.io.dataInValid, true.B)
-    //  poke(c.io.txStart, true.B)
-    //  poke(c.io.frameCount, 18.U)
-    }else{
-      poke(c.io.in.bits, 0.U((params.frameIndexWidth + params.dataWidth).W))
-      poke(c.io.in.valid, false.B)
-    }
-    step(1)
-    numberOfSteps += 1
-  }
-  */
-  while(numberOfSteps < 20000 && rxDataCount < frameNumber){
+
+  while(numberOfSteps < 200000 && rxDataCount < frameNumber){
     //poke(c.io.in.bits, (((numberOfSteps-startStepNb) << params.dataWidth)+(Random.nextInt(math.pow(2, (params.dataWidth.toLong)).toInt))).asUInt)
     //if(numberOfSteps % 5 == 1 && frameNb >0){
     if(frameNb >0){
@@ -61,12 +43,12 @@ class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester
       poke(c.io.hostIn.bits, 0.U(params.dataWidth.W))
       poke(c.io.hostIn.valid, false.B)
     }
-    if(Random.nextInt(100).toInt == 1){
+    if(Random.nextInt(30).toInt == 1){
       poke(c.io.error, true.B)
     }else{
       poke(c.io.error, false.B)
     }
-    if(peek(c.io.rxout.valid) == BigInt(0)){
+    if(peek(c.io.rxout.valid) == true){
       rxDataCount += 1
     }
     print(rxDataCount)
