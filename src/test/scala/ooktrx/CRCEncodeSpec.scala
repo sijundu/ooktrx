@@ -15,7 +15,7 @@ class CRCEncodeTester(val c: CRCEncode[UInt]) extends DspTester(c) {
   var validIn = false.B
 
   poke(c.io.divisor, divisor)
-  poke(c.io.frameBits, "b1111".asUInt(params.frameBitsWidth.W))
+  poke(c.io.preamble, "b1111".asUInt(params.preambleWidth.W))
 
   while(numberOfSteps < 2000) {
     if(numberOfSteps%20 == 0){

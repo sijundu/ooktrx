@@ -16,13 +16,13 @@ import scala.util.Random
 class TopControlRandomInputTester(val c: TopControl[UInt]) extends DspTester(c) {
 
   val params = OokParams
-  val frameBits = "b1111".asUInt(params.frameBitsWidth.W)
+  val preamble = "b1111".asUInt(params.preambleWidth.W)
   val divisor = "b101010101".asUInt(params.divisorWidth.W)
   var numberOfSteps = 0
   var startStepNb = 100
   var frameNb = 100
 
-  poke(c.io.frameBits, frameBits)
+  poke(c.io.preamble, preamble)
   poke(c.io.divisor, divisor)
 
   /*

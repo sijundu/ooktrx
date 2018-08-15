@@ -11,13 +11,13 @@ import scala.util.Random
 class OOKTxRandomInputTester(val c: OOKTx[UInt]) extends DspTester(c) {
 
   val params = OokParams
-  val frameBits = "b1111".asUInt(params.frameBitsWidth.W)
+  val preamble = "b1111".asUInt(params.preambleWidth.W)
   val divisor = "b101010101".asUInt(params.divisorWidth.W)
   var frameIndex = "b0001".asUInt(params.frameIndexWidth.W)
   var numberOfSteps = 0
-  var randomFrameBits = Random.nextInt(2)
+  var randomPreamble = Random.nextInt(2)
 
-  poke(c.io.frameBits, frameBits)
+  poke(c.io.preamble, preamble)
   poke(c.io.divisor, divisor)
 
   //poke(c.io.sendEn, true.B)
@@ -40,19 +40,19 @@ class OOKTxRandomInputTester(val c: OOKTx[UInt]) extends DspTester(c) {
 class OOKTxFullFrameTester(val c: OOKTx[UInt]) extends DspTester(c) {
 
   val params = OokParams
-  val frameBits = "b1111".asUInt(params.frameBitsWidth.W)
+  val preamble = "b1111".asUInt(params.preambleWidth.W)
   var numberOfSteps = 0
-  var randomFrameBits = Random.nextInt(2)
+  var randomPreamble = Random.nextInt(2)
 
-  poke(c.io.frameBits, frameBits)
+  poke(c.io.preamble, preamble)
   poke(c.io.divisor, "b1101".asUInt(params.divisorWidth.W))
 
   while(numberOfSteps < 5000){
-    randomFrameBits = Random.nextInt(2)
-    if(numberOfSteps > 10 && numberOfSteps % params.frameWidth < params.frameBitsWidth){
+    randomPreamble = Random.nextInt(2)
+    if(numberOfSteps > 10 && numberOfSteps % params.frameWidth < params.preambleWidth){
       poke(c.io.in, true.B)
     }else{
-      poke(c.io.in, randomFrameBits != 0)
+      poke(c.io.in, randomPreamble != 0)
     }
     step(1)
     numberOfSteps += 1
@@ -81,7 +81,7 @@ class OOKTxSpec extends FreeSpec with Matchers {
   /*
   "OOK TX test with full valid input frame: with FrameSync, FrameStackRx and CRC Check" in{
     val gen = () => new OOKTx(frameWidth = 20,
-                              frameBitsWidth = 4,
+                              preambleWidth = 4,
                               frameIndexWidth = 4,
                               dataWidth = 9,
                               divisorWidth = 4,

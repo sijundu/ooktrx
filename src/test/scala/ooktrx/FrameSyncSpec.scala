@@ -11,19 +11,19 @@ import scala.util.Random
 class FrameSyncTester(val c: FrameSync[UInt]) extends DspTester(c) {
 
   val params = OokParams
-  val frameBits = "b1111".asUInt(params.ooktrxParams.frameWidth.W)
+  val preamble = "b1111".asUInt(params.ooktrxParams.frameWidth.W)
   var numberOfSteps = 0
-  var randomFrameBits = Random.nextInt(2)
+  var randomPreamble = Random.nextInt(2)
 
-  poke(c.io.frameBits, frameBits)
+  poke(c.io.preamble, preamble)
   //poke(c.io.frameIndex, "b0011".asUInt(4.W))
 
   while(numberOfSteps < 1000){
-    randomFrameBits = Random.nextInt(2)
-    if(numberOfSteps % params.ooktrxParams.frameWidth < params.frameBitsWidth){
+    randomPreamble = Random.nextInt(2)
+    if(numberOfSteps % params.ooktrxParams.frameWidth < params.preambleWidth){
       poke(c.io.in, true.B)
     }else{
-      poke(c.io.in, randomFrameBits != 0)
+      poke(c.io.in, randomPreamble != 0)
     }
     poke(c.io.out.ready, true.B)
     step(1)

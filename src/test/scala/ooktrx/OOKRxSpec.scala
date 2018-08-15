@@ -11,16 +11,16 @@ import scala.util.Random
 class OOKRxRandomInputTester(val c: OOKRx[UInt]) extends DspTester(c) {
 
   val params = OokParams
-  val frameBits = "b1111".asUInt(params.frameBitsWidth.W)
+  val preamble = "b1111".asUInt(params.preambleWidth.W)
   var numberOfSteps = 0
-  var randomFrameBits = Random.nextInt(2)
+  var randomPreamble = Random.nextInt(2)
 
-  poke(c.io.frameBits, frameBits)
+  poke(c.io.preamble, preamble)
   poke(c.io.divisor, "b11101".asUInt(params.divisorWidth.W))
 
   while(numberOfSteps < 5000){
-    randomFrameBits = Random.nextInt(2)
-    poke(c.io.in, randomFrameBits != 0)
+    randomPreamble = Random.nextInt(2)
+    poke(c.io.in, randomPreamble != 0)
     step(1)
     numberOfSteps += 1
   }
@@ -29,19 +29,19 @@ class OOKRxRandomInputTester(val c: OOKRx[UInt]) extends DspTester(c) {
 class OOKRxFullFrameTester(val c: OOKRx[UInt]) extends DspTester(c) {
 
   val params = OokParams
-  val frameBits = "b1111".asUInt(params.frameBitsWidth.W)
+  val preamble = "b1111".asUInt(params.preambleWidth.W)
   var numberOfSteps = 0
-  var randomFrameBits = Random.nextInt(2)
+  var randomPreamble = Random.nextInt(2)
 
-  poke(c.io.frameBits, frameBits)
+  poke(c.io.preamble, preamble)
   poke(c.io.divisor, "b11101".asUInt(params.divisorWidth.W))
 
   while(numberOfSteps < 5000){
-    randomFrameBits = Random.nextInt(2)
-    if(numberOfSteps > 10 && numberOfSteps % params.frameWidth < params.frameBitsWidth){
+    randomPreamble = Random.nextInt(2)
+    if(numberOfSteps > 10 && numberOfSteps % params.frameWidth < params.preambleWidth){
       poke(c.io.in, true.B)
     }else{
-      poke(c.io.in, randomFrameBits != 0)
+      poke(c.io.in, randomPreamble != 0)
     }
     step(1)
     numberOfSteps += 1
