@@ -20,6 +20,7 @@ class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester
   var frameNb = 50
   var rxDataCount = 0
   val frameNumber = frameNb
+  val errorRate = 0.02 
 
   poke(c.io.frameBits, frameBits)
   poke(c.io.frameIndex, frameIndex)
@@ -43,7 +44,7 @@ class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester
       poke(c.io.hostIn.bits, 0.U(params.dataWidth.W))
       poke(c.io.hostIn.valid, false.B)
     }
-    if(Random.nextInt(30).toInt == 1){
+    if(Random.nextDouble() < errorRate){
       poke(c.io.error, true.B)
     }else{
       poke(c.io.error, false.B)
