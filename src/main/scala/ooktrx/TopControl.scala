@@ -59,7 +59,7 @@ class TopControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
   val firstTx = RegInit(Bool(), true.B)
   when(state === sCrcPassAsTx || state === sCrcFailAsTx){
     firstTx := false.B
-  }.elsewhen(!txMemory.io.out.valid){
+  }.elsewhen(txMemory.io.out.valid && !RegNext(txMemory.io.out.valid)){
     firstTx := true.B
   }
 
