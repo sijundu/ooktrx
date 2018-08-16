@@ -49,7 +49,7 @@ class TopControl[T <: Data](gen: T, p: OOKTRXparams) extends Module{
 
   // Counter to send a data as TX
   val counter = RegInit(0.U(10.W))
-  val countValue = 1000.U
+  val countValue = 10.U * p.frameWidth.asUInt
   when(state === sCrcPassAsTx || state === sCrcFailAsTx){
     counter := 0.U
   }.otherwise{
