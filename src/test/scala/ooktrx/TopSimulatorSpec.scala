@@ -12,8 +12,8 @@ import scala.util.Random
 class TopSimulatorRandomInputTester(val c: TopSimulator[UInt]) extends DspTester(c) {
 
   val params = OokParams
-  val preamble = "b1111".asUInt(params.preambleWidth.W)
-  val frameIndex = "b00001111".asUInt(params.frameIndexWidth.W)
+  val preamble = "b10101010".asUInt(params.preambleWidth.W)
+  val frameIndex = "b0000".asUInt(params.frameIndexWidth.W)
   val divisor = "b101010101".asUInt(params.divisorWidth.W)
   var numberOfSteps = 0
   var startStepNb = 100

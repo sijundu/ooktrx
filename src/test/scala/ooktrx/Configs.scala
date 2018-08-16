@@ -10,8 +10,8 @@ import chisel3.experimental._
 
 object OokParams
 {
-  val preambleWidth: Int = 4
-  val frameIndexWidth: Int = 8
+  val preambleWidth: Int = 8
+  val frameIndexWidth: Int = 4
   val dataWidth: Int = 16
   val divisorWidth: Int = 9
   val frameWidth: Int = preambleWidth+frameIndexWidth+dataWidth+divisorWidth-1
